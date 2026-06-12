@@ -1,1 +1,2 @@
-- [OpenAI live web-search briefing](openai-web-search-briefing.md) — Responses API web_search citations from url_citation annotations; sandbox does NOT inherit session env vars, verify AI via bash/curl.
+- [SoW Journey home & convert invariants](sow-journey.md) — unified "/" derives stages on the frontend; dedup keys on convertedAssessmentId existing in the assessments list; convert 409 dead-end gotcha.
+- [Frontend date fields are strings](api-client-react-dates.md) — generated `@workspace/api-client-react` summary types serialize date fields as `string`, not `Date`.

@@ -211,11 +211,14 @@ export const coldCallCapture: ProspectField[] = [
   },
 ];
 
+// Labels use the end-to-end journey vocabulary (Identify -> Cold Call -> Brief
+// -> Meet -> Onboard) so the prospect-workspace Stage control and the journey
+// rail speak the same language. The stored `value`s are unchanged.
 export const prospectStatuses = [
-  { value: "identified", label: "Identified" },
-  { value: "researching", label: "Researching" },
-  { value: "briefed", label: "Briefed" },
-  { value: "outreach", label: "Outreach" },
+  { value: "identified", label: "Identify" },
+  { value: "researching", label: "Cold Call" },
+  { value: "briefed", label: "Brief" },
+  { value: "outreach", label: "Meet" },
   { value: "converted", label: "Converted" },
   { value: "dormant", label: "Dormant" },
 ] as const;

@@ -1,12 +1,12 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Briefcase, LayoutDashboard, Compass } from "lucide-react";
+import { Briefcase, Route as RouteIcon, Compass } from "lucide-react";
 
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
 
-  const isDashboard = location === "/" || location.startsWith("/assessment");
-  const isProspecting = location.startsWith("/prospecting") || location.startsWith("/prospect/");
+  const isJourney = location === "/" || location.startsWith("/assessment") || location.startsWith("/prospect/");
+  const isProspecting = location.startsWith("/prospecting");
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground">
@@ -17,16 +17,16 @@ export function Layout({ children }: { children: ReactNode }) {
             <span className="font-serif text-xl font-medium tracking-tight">Source of Wealth Workspace</span>
           </div>
           <nav className="flex items-center gap-6">
-            <Link href="/" className={`text-sm font-medium transition-colors hover:text-primary ${isDashboard ? 'text-primary' : 'text-muted-foreground'}`}>
+            <Link href="/" className={`text-sm font-medium transition-colors hover:text-primary ${isJourney ? 'text-primary' : 'text-muted-foreground'}`}>
               <span className="flex items-center gap-2">
-                <LayoutDashboard className="w-4 h-4" />
-                Dashboard
+                <RouteIcon className="w-4 h-4" />
+                Journey
               </span>
             </Link>
             <Link href="/prospecting" className={`text-sm font-medium transition-colors hover:text-primary ${isProspecting ? 'text-primary' : 'text-muted-foreground'}`}>
               <span className="flex items-center gap-2">
                 <Compass className="w-4 h-4" />
-                Prospecting
+                Pipeline
               </span>
             </Link>
           </nav>

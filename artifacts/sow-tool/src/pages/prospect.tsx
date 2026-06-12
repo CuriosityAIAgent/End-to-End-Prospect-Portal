@@ -170,7 +170,7 @@ export default function Prospect() {
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <AlertCircle className="w-12 h-12 text-destructive mb-4" />
           <h2 className="text-xl font-serif mb-2">Prospect not found</h2>
-          <Button variant="outline" onClick={() => setLocation("/prospecting")}>Return to Prospecting</Button>
+          <Button variant="outline" onClick={() => setLocation("/prospecting")}>Return to Pipeline</Button>
         </div>
       </Layout>
     );

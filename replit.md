@@ -25,7 +25,8 @@ An interactive private-banking workspace where a relationship manager creates a 
 - API contract (source of truth): `lib/api-spec/openapi.yaml` → codegen produces hooks (`@workspace/api-client-react`) and Zod (`@workspace/api-zod`)
 - DB schema: `lib/db/src/schema/assessments.ts`, `lib/db/src/schema/prospects.ts`
 - API routes: `artifacts/api-server/src/routes/assessments.ts`, `artifacts/api-server/src/routes/prospects.ts`
-- Frontend app: `artifacts/sow-tool/` (Dashboard `/`, Workspace `/assessment/:id`, Prospecting `/prospecting`, Prospect `/prospect/:id`)
+- Frontend app: `artifacts/sow-tool/` (Journey home `/`, Workspace `/assessment/:id`, Pipeline `/prospecting`, Prospect `/prospect/:id`)
+- Journey derivation (source of truth for the unified home): `artifacts/sow-tool/src/lib/journey.ts` (`buildJourney`, `stageCounts`, 5-stage map)
 - Questionnaire content (source of truth): `artifacts/sow-tool/src/lib/sowCatalog.ts`
 - Prospecting content (source of truth): `artifacts/sow-tool/src/lib/prospectingCatalog.ts` (systematic-brief sections + the `coldCallScript` talk track and `coldCallCapture` log fields)
 - Completion calc: `artifacts/sow-tool/src/lib/progress.ts`
@@ -43,7 +44,7 @@ An interactive private-banking workspace where a relationship manager creates a 
 
 ## Product
 
-- Dashboard: portfolio overview (totals, breakdown by status and risk, recently updated) and a list of client assessments with completion progress; create new assessments.
+- Journey home (`/`): one continuous end-to-end view of every relationship (prospects + onboarding assessments) on a single 5-stage rail — Identify → Cold Call → Brief → Meet → Onboard. Derived purely on the frontend (no backend stage column) via `lib/journey.ts`: a "Next Actions" worklist, live per-stage counts, stage filters, overview-derived metrics, and both Add Prospect / New Assessment dialogs. Replaces the former separate Dashboard + Prospecting landing areas.
 - Assessment workspace: sectioned questionnaire (profile, applicable wealth categories with per-document checklists, source of funds, plausibility checks, red flags, sign-off, master checklist), debounced autosave, live completion %, status/risk controls, export/print, delete.
 - Prospecting: pipeline overview (totals, briefed, converted) and a prospect list; create prospects.
 - Prospect workspace: an end-to-end flow — (1) a cold-call script (structured talk track, live-personalised with the prospect name/RM/anchor, plus call-outcome log fields); (2) an AI pre-meeting briefing (live web search) showing summary, talking points, referral routes, recommended approach and cited sources; the systematic prospecting brief (5 profile dimensions, 3 channels, 4 operational questions) with debounced autosave; print; and (3) convert to a client SoW assessment (whose questionnaire is itself the meeting question guide).
