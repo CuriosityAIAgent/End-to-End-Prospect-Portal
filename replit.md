@@ -1,6 +1,6 @@
-# [Project name]
+# Source of Wealth Tool
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+An interactive private-banking workspace where a relationship manager creates a per-client Source of Wealth (SoW) assessment, works through the full due-diligence questionnaire with autosave, tracks completion and document checklists, and exports/prints the finished file.
 
 ## Run & Operate
 
@@ -22,15 +22,24 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- API contract (source of truth): `lib/api-spec/openapi.yaml` → codegen produces hooks (`@workspace/api-client-react`) and Zod (`@workspace/api-zod`)
+- DB schema: `lib/db/src/schema/assessments.ts`
+- API routes: `artifacts/api-server/src/routes/assessments.ts`
+- Frontend app: `artifacts/sow-tool/` (Dashboard `/`, Workspace `/assessment/:id`)
+- Questionnaire content (source of truth): `artifacts/sow-tool/src/lib/sowCatalog.ts`
+- Completion calc: `artifacts/sow-tool/src/lib/progress.ts`
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- All questionnaire answers, document-checklist states, and the banker's "applicable categories" selection are stored in a single `data` jsonb column on `assessments`, keyed by the catalog item ids. The frontend owns the shape; the backend just persists the blob. This keeps the schema stable as the questionnaire evolves.
+- `reviewType`/`riskRating` are optional (not nullable) in the OpenAPI contract; routes map DB `null` → `undefined` via a `serialize` helper so response parsing passes.
+- `PUT /assessments/:id` is the autosave + sign-off endpoint; an empty update body is a safe no-op (returns the current record) rather than an error.
+- The document checklist uses string states from `documentStates`: `not_applicable | outstanding | received | verified`.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Dashboard: portfolio overview (totals, breakdown by status and risk, recently updated) and a list of client assessments with completion progress; create new assessments.
+- Assessment workspace: sectioned questionnaire (profile, applicable wealth categories with per-document checklists, source of funds, plausibility checks, red flags, sign-off, master checklist), debounced autosave, live completion %, status/risk controls, export/print, delete.
 
 ## User preferences
 

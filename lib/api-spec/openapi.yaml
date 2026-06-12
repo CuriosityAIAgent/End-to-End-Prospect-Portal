@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: assessments
+    description: Source of Wealth client assessments
 paths:
   /healthz:
     get:
@@ -24,6 +26,121 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /assessments:
+    get:
+      operationId: listAssessments
+      tags: [assessments]
+      summary: List all client assessments
+      responses:
+        "200":
+          description: A list of assessment summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssessmentSummary"
+    post:
+      operationId: createAssessment
+      tags: [assessments]
+      summary: Create a new client assessment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssessmentInput"
+      responses:
+        "201":
+          description: The created assessment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assessment"
+  /assessments/{id}:
+    get:
+      operationId: getAssessment
+      tags: [assessments]
+      summary: Get a single assessment with all captured responses
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: The assessment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assessment"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      operationId: updateAssessment
+      tags: [assessments]
+      summary: Update an assessment (used for autosave)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssessmentUpdate"
+      responses:
+        "200":
+          description: The updated assessment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assessment"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteAssessment
+      tags: [assessments]
+      summary: Delete an assessment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /assessments-overview:
+    get:
+      operationId: getOverview
+      tags: [assessments]
+      summary: Aggregate statistics across all assessments
+      responses:
+        "200":
+          description: Overview statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Overview"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +150,160 @@ components:
           type: string
       required:
         - status
-
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    ReviewType:
+      type: string
+      enum: [onboarding, periodic_review, trigger_event]
+    RiskRating:
+      type: string
+      enum: [standard, enhanced]
+    AssessmentStatus:
+      type: string
+      enum: [draft, in_progress, completed]
+    Assessment:
+      type: object
+      required:
+        - id
+        - clientName
+        - status
+        - data
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        clientName:
+          type: string
+        clientReference:
+          type: ["string", "null"]
+        relationshipManager:
+          type: ["string", "null"]
+        reviewType:
+          $ref: "#/components/schemas/ReviewType"
+        riskRating:
+          $ref: "#/components/schemas/RiskRating"
+        status:
+          $ref: "#/components/schemas/AssessmentStatus"
+        data:
+          type: object
+          additionalProperties: true
+          description: Free-form record of every captured response, keyed by field id
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    AssessmentSummary:
+      type: object
+      required:
+        - id
+        - clientName
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        clientName:
+          type: string
+        clientReference:
+          type: ["string", "null"]
+        relationshipManager:
+          type: ["string", "null"]
+        reviewType:
+          $ref: "#/components/schemas/ReviewType"
+        riskRating:
+          $ref: "#/components/schemas/RiskRating"
+        status:
+          $ref: "#/components/schemas/AssessmentStatus"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    AssessmentInput:
+      type: object
+      required:
+        - clientName
+      properties:
+        clientName:
+          type: string
+          minLength: 1
+        clientReference:
+          type: ["string", "null"]
+        relationshipManager:
+          type: ["string", "null"]
+        reviewType:
+          $ref: "#/components/schemas/ReviewType"
+        riskRating:
+          $ref: "#/components/schemas/RiskRating"
+        status:
+          $ref: "#/components/schemas/AssessmentStatus"
+        data:
+          type: object
+          additionalProperties: true
+    AssessmentUpdate:
+      type: object
+      properties:
+        clientName:
+          type: string
+          minLength: 1
+        clientReference:
+          type: ["string", "null"]
+        relationshipManager:
+          type: ["string", "null"]
+        reviewType:
+          $ref: "#/components/schemas/ReviewType"
+        riskRating:
+          $ref: "#/components/schemas/RiskRating"
+        status:
+          $ref: "#/components/schemas/AssessmentStatus"
+        data:
+          type: object
+          additionalProperties: true
+    StatusCount:
+      type: object
+      required: [status, count]
+      properties:
+        status:
+          $ref: "#/components/schemas/AssessmentStatus"
+        count:
+          type: integer
+    RiskCount:
+      type: object
+      required: [riskRating, count]
+      properties:
+        riskRating:
+          $ref: "#/components/schemas/RiskRating"
+        count:
+          type: integer
+    Overview:
+      type: object
+      required:
+        - total
+        - byStatus
+        - byRisk
+        - recentlyUpdated
+      properties:
+        total:
+          type: integer
+        byStatus:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusCount"
+        byRisk:
+          type: array
+          items:
+            $ref: "#/components/schemas/RiskCount"
+        recentlyUpdated:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssessmentSummary"

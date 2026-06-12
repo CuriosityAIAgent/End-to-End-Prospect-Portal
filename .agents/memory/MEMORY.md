@@ -1,0 +1,1 @@
+- [Orval optional vs nullable enums](orval-optional-enums.md) — OpenAPI enum `$ref` props that are not `required` become Zod `.optional()` (not nullish); map DB `null`→`undefined` before parsing responses or parse throws.
