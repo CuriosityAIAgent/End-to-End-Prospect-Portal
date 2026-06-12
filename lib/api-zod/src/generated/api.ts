@@ -141,3 +141,155 @@ export const GetOverviewResponse = zod.object({
 })
 
 
+/**
+ * @summary List all prospects
+ */
+export const ListProspectsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "segment": zod.string().nullish(),
+  "relationshipManager": zod.string().nullish(),
+  "status": zod.enum(['identified', 'researching', 'briefed', 'outreach', 'converted', 'dormant']),
+  "hasBriefing": zod.boolean(),
+  "convertedAssessmentId": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListProspectsResponse = zod.array(ListProspectsResponseItem)
+
+
+/**
+ * @summary Create a new prospect
+ */
+
+
+
+export const CreateProspectBody = zod.object({
+  "name": zod.string().min(1),
+  "segment": zod.string().nullish(),
+  "relationshipManager": zod.string().nullish(),
+  "status": zod.enum(['identified', 'researching', 'briefed', 'outreach', 'converted', 'dormant']).optional(),
+  "data": zod.record(zod.string(), zod.unknown()).optional()
+})
+
+
+/**
+ * @summary Get a single prospect with full profile and any cached briefing
+ */
+export const GetProspectParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetProspectResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "segment": zod.string().nullish(),
+  "relationshipManager": zod.string().nullish(),
+  "status": zod.enum(['identified', 'researching', 'briefed', 'outreach', 'converted', 'dormant']),
+  "data": zod.record(zod.string(), zod.unknown()).describe('Free-form profile, channels and operational-question notes, keyed by catalog id'),
+  "briefing": zod.union([zod.object({
+  "summary": zod.string(),
+  "talkingPoints": zod.array(zod.string()),
+  "referralRoutes": zod.array(zod.string()),
+  "recommendedApproach": zod.string(),
+  "sources": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string()
+})),
+  "generatedAt": zod.coerce.date()
+}),zod.null()]).optional(),
+  "convertedAssessmentId": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a prospect (used for autosave)
+ */
+export const UpdateProspectParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateProspectBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "segment": zod.string().nullish(),
+  "relationshipManager": zod.string().nullish(),
+  "status": zod.enum(['identified', 'researching', 'briefed', 'outreach', 'converted', 'dormant']).optional(),
+  "data": zod.record(zod.string(), zod.unknown()).optional()
+})
+
+export const UpdateProspectResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "segment": zod.string().nullish(),
+  "relationshipManager": zod.string().nullish(),
+  "status": zod.enum(['identified', 'researching', 'briefed', 'outreach', 'converted', 'dormant']),
+  "data": zod.record(zod.string(), zod.unknown()).describe('Free-form profile, channels and operational-question notes, keyed by catalog id'),
+  "briefing": zod.union([zod.object({
+  "summary": zod.string(),
+  "talkingPoints": zod.array(zod.string()),
+  "referralRoutes": zod.array(zod.string()),
+  "recommendedApproach": zod.string(),
+  "sources": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string()
+})),
+  "generatedAt": zod.coerce.date()
+}),zod.null()]).optional(),
+  "convertedAssessmentId": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a prospect
+ */
+export const DeleteProspectParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary Generate an AI pre-meeting briefing backed by a live internet search
+ */
+export const GenerateProspectBriefingParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GenerateProspectBriefingResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "segment": zod.string().nullish(),
+  "relationshipManager": zod.string().nullish(),
+  "status": zod.enum(['identified', 'researching', 'briefed', 'outreach', 'converted', 'dormant']),
+  "data": zod.record(zod.string(), zod.unknown()).describe('Free-form profile, channels and operational-question notes, keyed by catalog id'),
+  "briefing": zod.union([zod.object({
+  "summary": zod.string(),
+  "talkingPoints": zod.array(zod.string()),
+  "referralRoutes": zod.array(zod.string()),
+  "recommendedApproach": zod.string(),
+  "sources": zod.array(zod.object({
+  "title": zod.string(),
+  "url": zod.string()
+})),
+  "generatedAt": zod.coerce.date()
+}),zod.null()]).optional(),
+  "convertedAssessmentId": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Convert a qualified prospect into a client SoW assessment
+ */
+export const ConvertProspectParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+

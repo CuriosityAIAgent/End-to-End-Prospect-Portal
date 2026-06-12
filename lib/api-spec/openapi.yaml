@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: assessments
     description: Source of Wealth client assessments
+  - name: prospects
+    description: Prospecting pipeline and AI pre-meeting briefings
 paths:
   /healthz:
     get:
@@ -141,6 +143,169 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Overview"
+  /prospects:
+    get:
+      operationId: listProspects
+      tags: [prospects]
+      summary: List all prospects
+      responses:
+        "200":
+          description: A list of prospect summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProspectSummary"
+    post:
+      operationId: createProspect
+      tags: [prospects]
+      summary: Create a new prospect
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProspectInput"
+      responses:
+        "201":
+          description: The created prospect
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Prospect"
+  /prospects/{id}:
+    get:
+      operationId: getProspect
+      tags: [prospects]
+      summary: Get a single prospect with full profile and any cached briefing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: The prospect
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Prospect"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      operationId: updateProspect
+      tags: [prospects]
+      summary: Update a prospect (used for autosave)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProspectUpdate"
+      responses:
+        "200":
+          description: The updated prospect
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Prospect"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteProspect
+      tags: [prospects]
+      summary: Delete a prospect
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /prospects/{id}/briefing:
+    post:
+      operationId: generateProspectBriefing
+      tags: [prospects]
+      summary: Generate an AI pre-meeting briefing backed by a live internet search
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: The prospect with the freshly generated briefing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Prospect"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: Briefing generation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /prospects/{id}/convert:
+    post:
+      operationId: convertProspect
+      tags: [prospects]
+      summary: Convert a qualified prospect into a client SoW assessment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: The newly created assessment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assessment"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Prospect already converted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     HealthStatus:
@@ -307,3 +472,141 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AssessmentSummary"
+    ProspectStatus:
+      type: string
+      enum: [identified, researching, briefed, outreach, converted, dormant]
+    BriefingSource:
+      type: object
+      required: [title, url]
+      properties:
+        title:
+          type: string
+        url:
+          type: string
+    Briefing:
+      type: object
+      required:
+        - summary
+        - talkingPoints
+        - referralRoutes
+        - recommendedApproach
+        - sources
+        - generatedAt
+      properties:
+        summary:
+          type: string
+        talkingPoints:
+          type: array
+          items:
+            type: string
+        referralRoutes:
+          type: array
+          items:
+            type: string
+        recommendedApproach:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/BriefingSource"
+        generatedAt:
+          type: string
+          format: date-time
+    Prospect:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - data
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        segment:
+          type: ["string", "null"]
+        relationshipManager:
+          type: ["string", "null"]
+        status:
+          $ref: "#/components/schemas/ProspectStatus"
+        data:
+          type: object
+          additionalProperties: true
+          description: Free-form profile, channels and operational-question notes, keyed by catalog id
+        briefing:
+          oneOf:
+            - $ref: "#/components/schemas/Briefing"
+            - type: "null"
+        convertedAssessmentId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ProspectSummary:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - hasBriefing
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        segment:
+          type: ["string", "null"]
+        relationshipManager:
+          type: ["string", "null"]
+        status:
+          $ref: "#/components/schemas/ProspectStatus"
+        hasBriefing:
+          type: boolean
+        convertedAssessmentId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ProspectInput:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+        segment:
+          type: ["string", "null"]
+        relationshipManager:
+          type: ["string", "null"]
+        status:
+          $ref: "#/components/schemas/ProspectStatus"
+        data:
+          type: object
+          additionalProperties: true
+    ProspectUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        segment:
+          type: ["string", "null"]
+        relationshipManager:
+          type: ["string", "null"]
+        status:
+          $ref: "#/components/schemas/ProspectStatus"
+        data:
+          type: object
+          additionalProperties: true

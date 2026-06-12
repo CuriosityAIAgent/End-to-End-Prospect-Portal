@@ -26,7 +26,11 @@ import type {
   AssessmentUpdate,
   Error,
   HealthStatus,
-  Overview
+  Overview,
+  Prospect,
+  ProspectInput,
+  ProspectSummary,
+  ProspectUpdate
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -562,4 +566,511 @@ export function useGetOverview<TData = Awaited<ReturnType<typeof getOverview>>, 
 
 
 
+
+export const getListProspectsUrl = () => {
+
+
+
+
+  return `/api/prospects`
+}
+
+/**
+ * @summary List all prospects
+ */
+export const listProspects = async ( options?: RequestInit): Promise<ProspectSummary[]> => {
+
+  return customFetch<ProspectSummary[]>(getListProspectsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProspectsQueryKey = () => {
+    return [
+    `/api/prospects`
+    ] as const;
+    }
+
+
+export const getListProspectsQueryOptions = <TData = Awaited<ReturnType<typeof listProspects>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProspects>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProspectsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProspects>>> = ({ signal }) => listProspects({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProspects>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProspectsQueryResult = NonNullable<Awaited<ReturnType<typeof listProspects>>>
+export type ListProspectsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all prospects
+ */
+
+export function useListProspects<TData = Awaited<ReturnType<typeof listProspects>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProspects>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProspectsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateProspectUrl = () => {
+
+
+
+
+  return `/api/prospects`
+}
+
+/**
+ * @summary Create a new prospect
+ */
+export const createProspect = async (prospectInput: ProspectInput, options?: RequestInit): Promise<Prospect> => {
+
+  return customFetch<Prospect>(getCreateProspectUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      prospectInput,)
+  }
+);}
+
+
+
+
+export const getCreateProspectMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProspect>>, TError,{data: BodyType<ProspectInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createProspect>>, TError,{data: BodyType<ProspectInput>}, TContext> => {
+
+const mutationKey = ['createProspect'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createProspect>>, {data: BodyType<ProspectInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createProspect(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateProspectMutationResult = NonNullable<Awaited<ReturnType<typeof createProspect>>>
+    export type CreateProspectMutationBody = BodyType<ProspectInput>
+    export type CreateProspectMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a new prospect
+ */
+export const useCreateProspect = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProspect>>, TError,{data: BodyType<ProspectInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createProspect>>,
+        TError,
+        {data: BodyType<ProspectInput>},
+        TContext
+      > => {
+      return useMutation(getCreateProspectMutationOptions(options));
+    }
+
+export const getGetProspectUrl = (id: number,) => {
+
+
+
+
+  return `/api/prospects/${id}`
+}
+
+/**
+ * @summary Get a single prospect with full profile and any cached briefing
+ */
+export const getProspect = async (id: number, options?: RequestInit): Promise<Prospect> => {
+
+  return customFetch<Prospect>(getGetProspectUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProspectQueryKey = (id: number,) => {
+    return [
+    `/api/prospects/${id}`
+    ] as const;
+    }
+
+
+export const getGetProspectQueryOptions = <TData = Awaited<ReturnType<typeof getProspect>>, TError = ErrorType<Error>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProspect>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProspectQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProspect>>> = ({ signal }) => getProspect(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProspect>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProspectQueryResult = NonNullable<Awaited<ReturnType<typeof getProspect>>>
+export type GetProspectQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Get a single prospect with full profile and any cached briefing
+ */
+
+export function useGetProspect<TData = Awaited<ReturnType<typeof getProspect>>, TError = ErrorType<Error>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProspect>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProspectQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateProspectUrl = (id: number,) => {
+
+
+
+
+  return `/api/prospects/${id}`
+}
+
+/**
+ * @summary Update a prospect (used for autosave)
+ */
+export const updateProspect = async (id: number,
+    prospectUpdate: ProspectUpdate, options?: RequestInit): Promise<Prospect> => {
+
+  return customFetch<Prospect>(getUpdateProspectUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      prospectUpdate,)
+  }
+);}
+
+
+
+
+export const getUpdateProspectMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProspect>>, TError,{id: number;data: BodyType<ProspectUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProspect>>, TError,{id: number;data: BodyType<ProspectUpdate>}, TContext> => {
+
+const mutationKey = ['updateProspect'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProspect>>, {id: number;data: BodyType<ProspectUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateProspect(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProspectMutationResult = NonNullable<Awaited<ReturnType<typeof updateProspect>>>
+    export type UpdateProspectMutationBody = BodyType<ProspectUpdate>
+    export type UpdateProspectMutationError = ErrorType<Error>
+
+    /**
+ * @summary Update a prospect (used for autosave)
+ */
+export const useUpdateProspect = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProspect>>, TError,{id: number;data: BodyType<ProspectUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateProspect>>,
+        TError,
+        {id: number;data: BodyType<ProspectUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateProspectMutationOptions(options));
+    }
+
+export const getDeleteProspectUrl = (id: number,) => {
+
+
+
+
+  return `/api/prospects/${id}`
+}
+
+/**
+ * @summary Delete a prospect
+ */
+export const deleteProspect = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteProspectUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteProspectMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProspect>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteProspect>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteProspect'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteProspect>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteProspect(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteProspectMutationResult = NonNullable<Awaited<ReturnType<typeof deleteProspect>>>
+
+    export type DeleteProspectMutationError = ErrorType<Error>
+
+    /**
+ * @summary Delete a prospect
+ */
+export const useDeleteProspect = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProspect>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteProspect>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteProspectMutationOptions(options));
+    }
+
+export const getGenerateProspectBriefingUrl = (id: number,) => {
+
+
+
+
+  return `/api/prospects/${id}/briefing`
+}
+
+/**
+ * @summary Generate an AI pre-meeting briefing backed by a live internet search
+ */
+export const generateProspectBriefing = async (id: number, options?: RequestInit): Promise<Prospect> => {
+
+  return customFetch<Prospect>(getGenerateProspectBriefingUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getGenerateProspectBriefingMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateProspectBriefing>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof generateProspectBriefing>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['generateProspectBriefing'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generateProspectBriefing>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  generateProspectBriefing(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GenerateProspectBriefingMutationResult = NonNullable<Awaited<ReturnType<typeof generateProspectBriefing>>>
+
+    export type GenerateProspectBriefingMutationError = ErrorType<Error>
+
+    /**
+ * @summary Generate an AI pre-meeting briefing backed by a live internet search
+ */
+export const useGenerateProspectBriefing = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateProspectBriefing>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof generateProspectBriefing>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getGenerateProspectBriefingMutationOptions(options));
+    }
+
+export const getConvertProspectUrl = (id: number,) => {
+
+
+
+
+  return `/api/prospects/${id}/convert`
+}
+
+/**
+ * @summary Convert a qualified prospect into a client SoW assessment
+ */
+export const convertProspect = async (id: number, options?: RequestInit): Promise<Assessment> => {
+
+  return customFetch<Assessment>(getConvertProspectUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getConvertProspectMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof convertProspect>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof convertProspect>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['convertProspect'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof convertProspect>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  convertProspect(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConvertProspectMutationResult = NonNullable<Awaited<ReturnType<typeof convertProspect>>>
+
+    export type ConvertProspectMutationError = ErrorType<Error>
+
+    /**
+ * @summary Convert a qualified prospect into a client SoW assessment
+ */
+export const useConvertProspect = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof convertProspect>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof convertProspect>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getConvertProspectMutationOptions(options));
+    }
 

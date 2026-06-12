@@ -121,3 +121,92 @@ export interface Overview {
   recentlyUpdated: AssessmentSummary[];
 }
 
+export type ProspectStatus = typeof ProspectStatus[keyof typeof ProspectStatus];
+
+
+export const ProspectStatus = {
+  identified: 'identified',
+  researching: 'researching',
+  briefed: 'briefed',
+  outreach: 'outreach',
+  converted: 'converted',
+  dormant: 'dormant',
+} as const;
+
+export interface BriefingSource {
+  title: string;
+  url: string;
+}
+
+export interface Briefing {
+  summary: string;
+  talkingPoints: string[];
+  referralRoutes: string[];
+  recommendedApproach: string;
+  sources: BriefingSource[];
+  generatedAt: string;
+}
+
+/**
+ * Free-form profile, channels and operational-question notes, keyed by catalog id
+ */
+export type ProspectData = { [key: string]: unknown };
+
+export interface Prospect {
+  id: number;
+  name: string;
+  /** @nullable */
+  segment?: string | null;
+  /** @nullable */
+  relationshipManager?: string | null;
+  status: ProspectStatus;
+  /** Free-form profile, channels and operational-question notes, keyed by catalog id */
+  data: ProspectData;
+  briefing?: Briefing | null;
+  /** @nullable */
+  convertedAssessmentId?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProspectSummary {
+  id: number;
+  name: string;
+  /** @nullable */
+  segment?: string | null;
+  /** @nullable */
+  relationshipManager?: string | null;
+  status: ProspectStatus;
+  hasBriefing: boolean;
+  /** @nullable */
+  convertedAssessmentId?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ProspectInputData = { [key: string]: unknown };
+
+export interface ProspectInput {
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  segment?: string | null;
+  /** @nullable */
+  relationshipManager?: string | null;
+  status?: ProspectStatus;
+  data?: ProspectInputData;
+}
+
+export type ProspectUpdateData = { [key: string]: unknown };
+
+export interface ProspectUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @nullable */
+  segment?: string | null;
+  /** @nullable */
+  relationshipManager?: string | null;
+  status?: ProspectStatus;
+  data?: ProspectUpdateData;
+}
+

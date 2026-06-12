@@ -1,1 +1,1 @@
-- [Orval optional vs nullable enums](orval-optional-enums.md) — OpenAPI enum `$ref` props that are not `required` become Zod `.optional()` (not nullish); map DB `null`→`undefined` before parsing responses or parse throws.
+- [OpenAI live web-search briefing](openai-web-search-briefing.md) — Responses API web_search citations from url_citation annotations; sandbox does NOT inherit session env vars, verify AI via bash/curl.
