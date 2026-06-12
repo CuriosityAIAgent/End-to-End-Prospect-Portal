@@ -343,6 +343,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /file-notes/extract-profile:
+    post:
+      operationId: extractFileNoteProfile
+      tags: [file-notes]
+      summary: Extract client-profile field values from a meeting file note
+      description: >-
+        Stateless AI helper used by the client assessment file-note panel. Given
+        a meeting note (and optional confirmed discussion topics) plus a list of
+        client-profile fields, it returns concise extracted values for the
+        fields the note clearly addresses. Fields the note does not address are
+        omitted. Never fabricates values.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileNoteProfileExtractInput"
+      responses:
+        "200":
+          description: Extracted client-profile field values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileNoteProfileExtractResult"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: Extraction failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     HealthStatus:
@@ -394,6 +430,48 @@ components:
       properties:
         note:
           type: string
+    FileNoteProfileFieldSpec:
+      type: object
+      required: [key, label]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+    FileNoteProfileExtractInput:
+      type: object
+      required: [note, fields]
+      properties:
+        note:
+          type: string
+          minLength: 1
+        coverage:
+          type: array
+          description: Optional confirmed discussion topics to give the extractor extra context
+          items:
+            $ref: "#/components/schemas/FileNoteCoverageItem"
+        fields:
+          type: array
+          minItems: 1
+          description: The client-profile fields available to populate (key + human description)
+          items:
+            $ref: "#/components/schemas/FileNoteProfileFieldSpec"
+    FileNoteProfileValue:
+      type: object
+      required: [key, value]
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+    FileNoteProfileExtractResult:
+      type: object
+      required: [values]
+      properties:
+        values:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileNoteProfileValue"
     ReviewType:
       type: string
       enum: [onboarding, periodic_review, trigger_event]

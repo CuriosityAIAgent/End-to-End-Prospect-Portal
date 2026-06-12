@@ -25,6 +25,8 @@ import type {
   AssessmentSummary,
   AssessmentUpdate,
   Error,
+  FileNoteProfileExtractInput,
+  FileNoteProfileExtractResult,
   FileNoteRewriteInput,
   FileNoteRewriteResult,
   HealthStatus,
@@ -1146,5 +1148,77 @@ export const useRewriteFileNote = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getRewriteFileNoteMutationOptions(options));
+    }
+
+export const getExtractFileNoteProfileUrl = () => {
+
+
+
+
+  return `/api/file-notes/extract-profile`
+}
+
+/**
+ * Stateless AI helper used by the client assessment file-note panel. Given a meeting note (and optional confirmed discussion topics) plus a list of client-profile fields, it returns concise extracted values for the fields the note clearly addresses. Fields the note does not address are omitted. Never fabricates values.
+ * @summary Extract client-profile field values from a meeting file note
+ */
+export const extractFileNoteProfile = async (fileNoteProfileExtractInput: FileNoteProfileExtractInput, options?: RequestInit): Promise<FileNoteProfileExtractResult> => {
+
+  return customFetch<FileNoteProfileExtractResult>(getExtractFileNoteProfileUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      fileNoteProfileExtractInput,)
+  }
+);}
+
+
+
+
+export const getExtractFileNoteProfileMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractFileNoteProfile>>, TError,{data: BodyType<FileNoteProfileExtractInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof extractFileNoteProfile>>, TError,{data: BodyType<FileNoteProfileExtractInput>}, TContext> => {
+
+const mutationKey = ['extractFileNoteProfile'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof extractFileNoteProfile>>, {data: BodyType<FileNoteProfileExtractInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  extractFileNoteProfile(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExtractFileNoteProfileMutationResult = NonNullable<Awaited<ReturnType<typeof extractFileNoteProfile>>>
+    export type ExtractFileNoteProfileMutationBody = BodyType<FileNoteProfileExtractInput>
+    export type ExtractFileNoteProfileMutationError = ErrorType<Error>
+
+    /**
+ * @summary Extract client-profile field values from a meeting file note
+ */
+export const useExtractFileNoteProfile = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractFileNoteProfile>>, TError,{data: BodyType<FileNoteProfileExtractInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof extractFileNoteProfile>>,
+        TError,
+        {data: BodyType<FileNoteProfileExtractInput>},
+        TContext
+      > => {
+      return useMutation(getExtractFileNoteProfileMutationOptions(options));
     }
 

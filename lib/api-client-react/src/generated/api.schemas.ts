@@ -34,6 +34,32 @@ export interface FileNoteRewriteResult {
   note: string;
 }
 
+export interface FileNoteProfileFieldSpec {
+  key: string;
+  label: string;
+}
+
+export interface FileNoteProfileExtractInput {
+  /** @minLength 1 */
+  note: string;
+  /** Optional confirmed discussion topics to give the extractor extra context */
+  coverage?: FileNoteCoverageItem[];
+  /**
+     * The client-profile fields available to populate (key + human description)
+     * @minItems 1
+     */
+  fields: FileNoteProfileFieldSpec[];
+}
+
+export interface FileNoteProfileValue {
+  key: string;
+  value: string;
+}
+
+export interface FileNoteProfileExtractResult {
+  values: FileNoteProfileValue[];
+}
+
 export type ReviewType = typeof ReviewType[keyof typeof ReviewType];
 
 

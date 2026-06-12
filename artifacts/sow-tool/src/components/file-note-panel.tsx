@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useRewriteFileNote } from "@workspace/api-client-react";
+import { useRewriteFileNote, useExtractFileNoteProfile } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
@@ -23,6 +24,7 @@ import {
   ClipboardCheck,
   AlertCircle,
   Layers,
+  UserPlus,
 } from "lucide-react";
 
 const todayIso = () => {
@@ -42,11 +44,22 @@ export function FileNotePanel({
   onChange,
   contactName,
   defaultMeetingType,
+  profileExtraction,
 }: {
   value: FileNoteData | undefined;
   onChange: (next: FileNoteData) => void;
   contactName: string;
   defaultMeetingType?: string;
+  /**
+   * When provided (assessment workspace only), shows a "Populate client profile"
+   * action that extracts profile field values from the note. The prospect page
+   * omits this — it has no client-profile form.
+   */
+  profileExtraction?: {
+    fields: { key: string; label: string }[];
+    currentValues: Record<string, string>;
+    onApply: (values: Record<string, string>) => void;
+  };
 }) {
   const fn = value ?? {};
   const effective: Required<Pick<FileNoteData, "meetingType" | "date" | "note">> & {
@@ -64,6 +77,11 @@ export function FileNotePanel({
   const [copied, setCopied] = useState(false);
 
   const rewrite = useRewriteFileNote();
+  const extractProfile = useExtractFileNoteProfile();
+
+  const [profileResult, setProfileResult] = useState<{ key: string; value: string }[] | null>(null);
+  const [profileSelected, setProfileSelected] = useState<Record<string, boolean>>({});
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   const words = countWords(effective.note);
   const hasNote = effective.note.trim().length > 0;
@@ -71,6 +89,18 @@ export function FileNotePanel({
     const entry = effective.coverage[dim.id];
     return !!entry && isCovered(entry.value);
   });
+
+  // Only the dimensions the banker explicitly engaged with and whose value is
+  // non-null. Shared by enhance and profile-extract — sending an untouched
+  // default (e.g. Relationship Temperature's "Strong and growing") would feed
+  // the model an unconfirmed "fact" it would weave in as if confirmed.
+  const engagedCoverage = () =>
+    coverageDimensions
+      .map((dim) => ({ dim, entry: effective.coverage[dim.id] }))
+      .filter(({ entry }) => !!entry && isCovered(entry.value))
+      .map(({ dim, entry }) => ({ label: dim.label, value: entry!.value, detail: entry!.detail }));
+
+  const fieldLabels = new Map(profileExtraction?.fields.map((f) => [f.key, f.label]) ?? []);
 
   const patch = (p: Partial<FileNoteData>) => {
     onChange({ ...effective, ...p });
@@ -107,14 +137,7 @@ export function FileNotePanel({
     setAiError(null);
     setPreviewMode("enhance");
     setPreview(null);
-    // Only send dimensions the banker explicitly engaged with and that aren't
-    // a "null" value — otherwise an untouched default (e.g. Relationship
-    // Temperature's "Strong and growing") would be passed to the model as a
-    // confirmed fact and fabricated into a regulator-facing note.
-    const coverage = coverageDimensions
-      .map((dim) => ({ dim, entry: effective.coverage[dim.id] }))
-      .filter(({ entry }) => !!entry && isCovered(entry.value))
-      .map(({ dim, entry }) => ({ label: dim.label, value: entry!.value, detail: entry!.detail }));
+    const coverage = engagedCoverage();
     rewrite.mutate(
       {
         data: {
@@ -145,6 +168,53 @@ export function FileNotePanel({
     setPreview(null);
     setPreviewMode(null);
     setAiError(null);
+  };
+
+  const runExtractProfile = () => {
+    if (!profileExtraction) return;
+    setProfileError(null);
+    setProfileResult(null);
+    extractProfile.mutate(
+      {
+        data: {
+          note: effective.note,
+          coverage: engagedCoverage(),
+          fields: profileExtraction.fields,
+        },
+      },
+      {
+        onSuccess: (res) => {
+          setProfileResult(res.values);
+          // Default-tick fields that are currently empty; leave fields that
+          // would overwrite the banker's existing input unticked so applying is
+          // an opt-in, never a silent clobber.
+          const sel: Record<string, boolean> = {};
+          for (const v of res.values) {
+            const current = profileExtraction.currentValues[v.key] ?? "";
+            sel[v.key] = current.trim().length === 0;
+          }
+          setProfileSelected(sel);
+        },
+        onError: () => setProfileError("The client profile could not be extracted. Please try again."),
+      },
+    );
+  };
+
+  const applyExtractedProfile = () => {
+    if (!profileExtraction || !profileResult) return;
+    const chosen: Record<string, string> = {};
+    for (const v of profileResult) {
+      if (profileSelected[v.key]) chosen[v.key] = v.value;
+    }
+    if (Object.keys(chosen).length > 0) profileExtraction.onApply(chosen);
+    setProfileResult(null);
+    setProfileSelected({});
+  };
+
+  const dismissProfile = () => {
+    setProfileResult(null);
+    setProfileSelected({});
+    setProfileError(null);
   };
 
   const copyNote = () => {
@@ -422,6 +492,109 @@ export function FileNotePanel({
             ) : null}
           </div>
         </div>
+
+        {/* Populate client profile — assessment workspace only */}
+        {profileExtraction && (
+          <div className="border-t border-border pt-6 print:hidden">
+            <div className="flex items-center gap-2 mb-1">
+              <UserPlus className="w-4 h-4 text-primary" />
+              <h3 className="font-serif text-lg">Populate client profile</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">
+              Pull what you discussed straight into the client profile above. The assistant only
+              suggests fields the note clearly covers — review and choose what to apply.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                onClick={runExtractProfile}
+                disabled={!hasNote || extractProfile.isPending}
+                variant="outline"
+                className="rounded-none border-primary/40 text-primary hover:bg-primary/5"
+              >
+                {extractProfile.isPending ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Reading the note...</>
+                ) : (
+                  <><UserPlus className="w-4 h-4 mr-2" /> Populate profile from note</>
+                )}
+              </Button>
+              {!hasNote && (
+                <span className="text-xs text-muted-foreground">Write a note first.</span>
+              )}
+            </div>
+
+            {profileError && (
+              <div className="flex items-center gap-2 text-sm text-destructive mt-3">
+                <AlertCircle className="w-4 h-4" /> {profileError}
+              </div>
+            )}
+
+            {profileResult !== null && (
+              <div className="border border-primary/30 bg-primary/[0.03] mt-4">
+                <div className="px-4 py-2.5 border-b border-border bg-primary/5">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-2">
+                    <UserPlus className="w-3.5 h-3.5" /> Suggested profile details
+                  </span>
+                </div>
+                <div className="p-4">
+                  {profileResult.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Nothing in the note mapped to a client-profile field. Add more detail and try again.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="space-y-3">
+                        {profileResult.map((v) => {
+                          const current = profileExtraction.currentValues[v.key] ?? "";
+                          const willOverwrite = current.trim().length > 0;
+                          return (
+                            <label key={v.key} className="flex gap-3 items-start cursor-pointer">
+                              <Checkbox
+                                checked={!!profileSelected[v.key]}
+                                onCheckedChange={(c) =>
+                                  setProfileSelected((prev) => ({ ...prev, [v.key]: c === true }))
+                                }
+                                className="mt-0.5 rounded-none"
+                              />
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-semibold text-foreground/80">
+                                    {fieldLabels.get(v.key) ?? v.key}
+                                  </span>
+                                  {willOverwrite && (
+                                    <span className="text-[10px] uppercase tracking-wider text-amber-600 border border-amber-300 px-1.5 py-0.5">
+                                      Overwrites existing
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-sm text-foreground/90 whitespace-pre-wrap">{v.value}</p>
+                                {willOverwrite && (
+                                  <p className="text-xs text-muted-foreground line-through whitespace-pre-wrap">{current}</p>
+                                )}
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border">
+                        <Button
+                          onClick={applyExtractedProfile}
+                          disabled={!profileResult.some((v) => profileSelected[v.key])}
+                          className="rounded-none bg-emerald-600 text-white hover:bg-emerald-700"
+                        >
+                          <Check className="w-4 h-4 mr-2" /> Apply to profile
+                        </Button>
+                        <Button variant="ghost" onClick={dismissProfile} className="rounded-none text-muted-foreground">
+                          Dismiss
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

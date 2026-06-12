@@ -318,3 +318,32 @@ export const RewriteFileNoteResponse = zod.object({
 })
 
 
+/**
+ * Stateless AI helper used by the client assessment file-note panel. Given a meeting note (and optional confirmed discussion topics) plus a list of client-profile fields, it returns concise extracted values for the fields the note clearly addresses. Fields the note does not address are omitted. Never fabricates values.
+ * @summary Extract client-profile field values from a meeting file note
+ */
+
+
+
+
+export const ExtractFileNoteProfileBody = zod.object({
+  "note": zod.string().min(1),
+  "coverage": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string(),
+  "detail": zod.string().optional()
+})).optional().describe('Optional confirmed discussion topics to give the extractor extra context'),
+  "fields": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string()
+})).min(1).describe('The client-profile fields available to populate (key + human description)')
+})
+
+export const ExtractFileNoteProfileResponse = zod.object({
+  "values": zod.array(zod.object({
+  "key": zod.string(),
+  "value": zod.string()
+}))
+})
+
+

@@ -302,6 +302,18 @@ export default function Workspace() {
           onChange={(v) => handleDataChange("fileNote", v)}
           contactName={assessment.clientName}
           defaultMeetingType="Client review"
+          profileExtraction={{
+            fields: profileFields.map((f) => ({ key: f.id, label: f.label })),
+            currentValues: Object.fromEntries(
+              profileFields.map((f) => [f.id, localData[f.id] ?? ""]),
+            ),
+            onApply: (values) =>
+              setLocalData((prev) => {
+                const next = { ...prev, ...values };
+                triggerSave(next, localMeta);
+                return next;
+              }),
+          }}
         />
 
         {/* Questionnaire Form */}

@@ -1,18 +1,18 @@
 import { Router, type IRouter } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { RewriteFileNoteBody, RewriteFileNoteResponse } from "@workspace/api-zod";
+import {
+  RewriteFileNoteBody,
+  RewriteFileNoteResponse,
+  ExtractFileNoteProfileBody,
+  ExtractFileNoteProfileResponse,
+} from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
-// System prompt for the first pass: turn the banker's raw, free-form meeting
-// note into a structured professional file note. Ported from the prototype.
-const REWRITE_INSTRUCTIONS = [
-  "You are an expert private banking file note writer. Your job is to rewrite raw file notes into polished, professional private banking documentation that follows industry standards.",
-  "",
-  "Your rewritten notes should:",
-  "- Use clear, concise business language appropriate for private banking",
-  "- Organize information logically and hierarchically",
-  "- Follow this structure:",
+// Shared professional file-note structure. Used by BOTH the rewrite (first pass)
+// and enhance (second pass) so an enhanced note is just as polished as a
+// freshly-rewritten one.
+const NOTE_STRUCTURE = [
   "  * Client / Contact: [name and key context]",
   "  * Meeting Type & Date: [type and date]",
   "  * Key Discussion Points: [main topics discussed, organized by theme]",
@@ -21,6 +21,18 @@ const REWRITE_INSTRUCTIONS = [
   "  * Current Relationships: [existing advisers, banking relationships, any competitive threats]",
   "  * Next Steps & Agreed Actions: [specific commitments, follow-ups, responsible parties, timelines]",
   "  * Summary / Key Themes: [brief assessment of relationship trajectory, opportunities, risk factors]",
+];
+
+// System prompt for the first pass: turn the banker's raw, free-form meeting
+// note into a structured professional file note.
+const REWRITE_INSTRUCTIONS = [
+  "You are an expert private banking file note writer. Your job is to rewrite raw file notes into polished, professional private banking documentation that follows industry standards.",
+  "",
+  "Your rewritten notes should:",
+  "- Use clear, concise business language appropriate for private banking",
+  "- Organize information logically and hierarchically",
+  "- Follow this structure:",
+  ...NOTE_STRUCTURE,
   "- Maintain all factual information from the original note",
   "- Enhance clarity without adding new information",
   "- Use professional tone suitable for regulatory review",
@@ -30,15 +42,52 @@ const REWRITE_INSTRUCTIONS = [
   "Return only the reformatted file note. Do not include any preamble, explanation, or markdown formatting outside the note itself.",
 ].join("\n");
 
-// System prompt for the second pass: weave the banker's confirmed discussion
-// topics into an existing draft. Ported from the prototype.
+// System prompt for the second pass: incorporate the banker's confirmed
+// discussion topics into the note AND re-run the full professional formatting,
+// so the result is a clean, regulator-ready note — not just a lightly-annotated
+// draft.
 const ENHANCE_INSTRUCTIONS = [
-  "You are an expert private banking file note writer. You will be given a draft professional file note and a set of topic coverage confirmations selected by the banker.",
-  "Your task is to enhance the draft note by incorporating the confirmed discussion areas naturally and professionally.",
-  "Do not fabricate specific details or figures — use the topic selections to confirm, expand, or add brief professional commentary where appropriate.",
-  "Maintain the existing structure and all factual content.",
-  "Return only the enhanced note with no preamble or explanation.",
+  "You are an expert private banking file note writer. You will be given a draft meeting file note and a set of discussion-topic confirmations the banker selected.",
+  "Your task is to produce ONE polished, professional private banking file note that BOTH incorporates the banker's confirmed discussion topics AND is fully reformatted to professional standards — exactly as if it had been run through the professional rewriter.",
+  "",
+  "The final note must:",
+  "- Weave the confirmed discussion topics naturally into the relevant sections",
+  "- Use clear, concise business language appropriate for private banking",
+  "- Organize information logically and hierarchically",
+  "- Follow this structure:",
+  ...NOTE_STRUCTURE,
+  "- Maintain all factual information from the original draft note",
+  "- Use professional tone suitable for regulatory review, with clear headings and bullet points where appropriate",
+  "- Be concise but complete",
+  "",
+  "Do not fabricate specific details, figures, or facts that are not present in the draft or the confirmed topics. Use the topic selections to confirm, organise, or add brief professional commentary only.",
+  'Where a topic reads "Not discussed" or "None", do not mention it.',
+  "Return only the final professional file note. Do not include any preamble, explanation, or markdown formatting outside the note itself.",
 ].join("\n");
+
+// System prompt for the profile-extraction helper: pull structured KYC client
+// profile values out of a meeting note. Conservative by design — only fills
+// fields the note clearly addresses.
+const EXTRACT_PROFILE_INSTRUCTIONS = [
+  "You are assisting a private banker with KYC / Source of Wealth onboarding.",
+  "You will be given a meeting file note (and optionally the banker's confirmed discussion topics) plus a list of client-profile fields, each with a key and a description of what it captures.",
+  "Extract a value for ONLY the fields that the note clearly states or unambiguously implies. Do not guess, infer beyond the text, or fabricate.",
+  "If a field is not addressed in the note, omit it entirely — do not include it with an empty or speculative value.",
+  "Each extracted value must be a concise, factual string suitable for dropping straight into the form field.",
+  'Return ONLY a JSON object of the exact form {"values":[{"key":"<field key>","value":"<extracted value>"}]} using the exact field keys provided. No preamble, no explanation, no markdown.',
+].join("\n");
+
+function coverageLines(
+  coverage: { label: string; value: string; detail?: string }[],
+): string {
+  return coverage
+    .map((c) =>
+      c.detail && c.detail.trim().length > 0
+        ? `- ${c.label}: ${c.value} — ${c.detail.trim()}`
+        : `- ${c.label}: ${c.value}`,
+    )
+    .join("\n");
+}
 
 router.post("/file-notes/rewrite", async (req, res): Promise<void> => {
   const parsed = RewriteFileNoteBody.safeParse(req.body);
@@ -55,19 +104,20 @@ router.post("/file-notes/rewrite", async (req, res): Promise<void> => {
 
   let input: string;
   if (isEnhance) {
-    const detailLines = coverage
-      .map((c) => (c.detail && c.detail.trim().length > 0 ? `- ${c.label}: ${c.value} — ${c.detail.trim()}` : `- ${c.label}: ${c.value}`))
-      .join("\n");
     input = [
-      "Please enhance this draft private banking file note using the discussion coverage details below.",
+      "Produce a single polished, professional private banking file note that incorporates the discussion coverage below and applies the full professional formatting.",
+      "",
+      `Meeting Type: ${meetingType || "Not specified"}`,
+      `Contact: ${contact}`,
+      `Date: ${date || "Not specified"}`,
       "",
       "DRAFT NOTE:",
       note,
       "",
       "DISCUSSION COVERAGE CONFIRMED BY BANKER:",
-      detailLines,
+      coverageLines(coverage),
       "",
-      'Incorporate confirmed topics into the relevant sections of the note. Where a topic was "Not discussed" or "None", do not mention it. Return only the enhanced file note.',
+      'Incorporate the confirmed topics into the relevant sections and reformat the whole note to professional standards. Where a topic was "Not discussed" or "None", do not mention it. Return only the final professional file note.',
     ].join("\n");
   } else {
     input = [
@@ -101,6 +151,70 @@ router.post("/file-notes/rewrite", async (req, res): Promise<void> => {
   } catch (err) {
     req.log.error({ err }, "File-note rewrite failed");
     res.status(502).json({ error: "The note could not be rewritten. Please try again." });
+  }
+});
+
+router.post("/file-notes/extract-profile", async (req, res): Promise<void> => {
+  const parsed = ExtractFileNoteProfileBody.safeParse(req.body);
+  if (!parsed.success) {
+    req.log.warn({ errors: parsed.error.message }, "Invalid file-note extract-profile body");
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { note, coverage, fields } = parsed.data;
+  const allowedKeys = new Set(fields.map((f) => f.key));
+
+  const fieldLines = fields.map((f) => `- ${f.key}: ${f.label}`).join("\n");
+  const hasCoverage = Array.isArray(coverage) && coverage.length > 0;
+
+  const input = [
+    "FIELDS TO EXTRACT (key: what the field captures):",
+    fieldLines,
+    "",
+    "MEETING FILE NOTE:",
+    note,
+    ...(hasCoverage ? ["", "CONFIRMED DISCUSSION TOPICS:", coverageLines(coverage)] : []),
+  ].join("\n");
+
+  try {
+    const response = await openai.responses.create({
+      model: "gpt-5.4",
+      instructions: EXTRACT_PROFILE_INSTRUCTIONS,
+      input,
+    });
+
+    const text = response.output_text ?? "";
+
+    let values: { key: string; value: string }[];
+    try {
+      const jsonStart = text.indexOf("{");
+      const jsonEnd = text.lastIndexOf("}");
+      const slice = jsonStart >= 0 && jsonEnd >= 0 ? text.slice(jsonStart, jsonEnd + 1) : text;
+      const raw = JSON.parse(slice) as { values?: unknown };
+      const rawValues = Array.isArray(raw.values) ? raw.values : [];
+      values = rawValues
+        .filter(
+          (v): v is { key: string; value: string } =>
+            !!v &&
+            typeof v === "object" &&
+            typeof (v as { key?: unknown }).key === "string" &&
+            typeof (v as { value?: unknown }).value === "string",
+        )
+        .map((v) => ({ key: v.key, value: v.value.trim() }))
+        .filter((v) => allowedKeys.has(v.key) && v.value.length > 0);
+    } catch {
+      req.log.error("Failed to parse profile-extraction JSON from model");
+      res.status(502).json({ error: "The client profile could not be extracted. Please try again." });
+      return;
+    }
+
+    // An empty result is valid information ("the note didn't mention any profile
+    // details"), so return 200 with an empty array rather than erroring.
+    res.json(ExtractFileNoteProfileResponse.parse({ values }));
+  } catch (err) {
+    req.log.error({ err }, "File-note profile extraction failed");
+    res.status(502).json({ error: "The client profile could not be extracted. Please try again." });
   }
 });
 
