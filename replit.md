@@ -27,7 +27,7 @@ An interactive private-banking workspace where a relationship manager creates a 
 - API routes: `artifacts/api-server/src/routes/assessments.ts`, `artifacts/api-server/src/routes/prospects.ts`
 - Frontend app: `artifacts/sow-tool/` (Dashboard `/`, Workspace `/assessment/:id`, Prospecting `/prospecting`, Prospect `/prospect/:id`)
 - Questionnaire content (source of truth): `artifacts/sow-tool/src/lib/sowCatalog.ts`
-- Prospecting content (source of truth): `artifacts/sow-tool/src/lib/prospectingCatalog.ts`
+- Prospecting content (source of truth): `artifacts/sow-tool/src/lib/prospectingCatalog.ts` (systematic-brief sections + the `coldCallScript` talk track and `coldCallCapture` log fields)
 - Completion calc: `artifacts/sow-tool/src/lib/progress.ts`
 - AI (OpenAI Responses API + live web_search): `lib/integrations-openai-ai-server`, used by the briefing route
 
@@ -46,7 +46,7 @@ An interactive private-banking workspace where a relationship manager creates a 
 - Dashboard: portfolio overview (totals, breakdown by status and risk, recently updated) and a list of client assessments with completion progress; create new assessments.
 - Assessment workspace: sectioned questionnaire (profile, applicable wealth categories with per-document checklists, source of funds, plausibility checks, red flags, sign-off, master checklist), debounced autosave, live completion %, status/risk controls, export/print, delete.
 - Prospecting: pipeline overview (totals, briefed, converted) and a prospect list; create prospects.
-- Prospect workspace: systematic prospecting brief (5 profile dimensions, 3 channels, 4 operational questions) with debounced autosave; an AI pre-meeting briefing (live web search) showing summary, talking points, referral routes, recommended approach and cited sources; print; convert to a client SoW assessment.
+- Prospect workspace: an end-to-end flow — (1) a cold-call script (structured talk track, live-personalised with the prospect name/RM/anchor, plus call-outcome log fields); (2) an AI pre-meeting briefing (live web search) showing summary, talking points, referral routes, recommended approach and cited sources; the systematic prospecting brief (5 profile dimensions, 3 channels, 4 operational questions) with debounced autosave; print; and (3) convert to a client SoW assessment (whose questionnaire is itself the meeting question guide).
 
 ## User preferences
 

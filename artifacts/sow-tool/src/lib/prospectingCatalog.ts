@@ -125,6 +125,92 @@ export const prospectingSections: ProspectSection[] = [
   operationalQuestions,
 ];
 
+// ---------------------------------------------------------------------------
+// Step 1 — the cold call. A structured talk track for the first approach.
+// The script is reference content; the capture fields below log the outcome and
+// are stored on the prospect's `data` blob like every other answer.
+// ---------------------------------------------------------------------------
+export type ColdCallStage = {
+  id: string;
+  stage: string;
+  // Suggested words. Bracketed tokens [Name], [RM], [anchor] are substituted
+  // live in the UI with the prospect's name, the RM and the captured anchor.
+  script: string;
+  guidance: string;
+};
+
+export const coldCallScript: ColdCallStage[] = [
+  {
+    id: "open",
+    stage: "Open with the anchor — never truly cold",
+    script:
+      "Good morning [Name], this is [RM] at the Private Bank. We haven't met — I'm calling because [anchor].",
+    guidance:
+      "Lead with the shared affiliation in the first sentence: a mutual connection, a fund or board you both touch, an alma mater. It buys you the next thirty seconds.",
+  },
+  {
+    id: "relevance",
+    stage: "Earn the next minute",
+    script:
+      "I'll be brief. I work with a small number of clients in your world and, given where you are right now, I thought a short conversation could be worth your time.",
+    guidance:
+      "One sentence on why you're worth listening to — tied to their situation, not a product pitch. Reference something specific you know (a liquidity event, a new role).",
+  },
+  {
+    id: "question",
+    stage: "Ask a question that invites them in",
+    script:
+      "Before I say any more — how are you currently thinking about managing things as this next stage plays out?",
+    guidance:
+      "An open, homework-backed question gets them talking and signals you understand their situation. Listen more than you speak.",
+  },
+  {
+    id: "objection",
+    stage: "Handle the reflex 'no'",
+    script:
+      "Of course — most people I speak to already have a bank they're happy with. I'm not asking you to change anything; I'd just value the chance to offer a second perspective.",
+    guidance:
+      "Expect 'I already have a bank' or 'I'm not looking.' Acknowledge it, don't push. Reframe around perspective and access, not switching.",
+  },
+  {
+    id: "ask",
+    stage: "Ask for a meeting, not for business",
+    script:
+      "Could we put twenty minutes in the diary — a coffee, no agenda? Would the early part of next week or the one after suit you better?",
+    guidance:
+      "Make the ask small and specific. Offer two concrete options so the answer is a choice of when, not whether.",
+  },
+  {
+    id: "close",
+    stage: "Confirm and close the loop",
+    script:
+      "Excellent — I'll send a short note to confirm. Thank you, [Name], I look forward to it.",
+    guidance:
+      "Lock the next step, confirm in writing the same day, and log the outcome below. If they declined, capture why and a sensible time to revisit.",
+  },
+];
+
+export const coldCallCapture: ProspectField[] = [
+  {
+    id: "coldcall.anchor",
+    label: "Your opening anchor",
+    hint: "The shared affiliation you'll lead with so the call isn't truly cold — drawn from the channels work below. This flows into the script above.",
+    placeholder: "e.g. introduced by a mutual board member at the foundation…",
+  },
+  {
+    id: "coldcall.outcome",
+    label: "Call outcome",
+    hint: "Meeting booked, call back, not now, or declined — and the date you called.",
+    placeholder: "e.g. 12 Jun — meeting booked for the week of 23 Jun…",
+  },
+  {
+    id: "coldcall.notes",
+    label: "Notes & next step",
+    hint: "What you learned, objections raised, and the immediate next action.",
+    placeholder: "Objections, signals of interest, what to send, when to follow up…",
+  },
+];
+
 export const prospectStatuses = [
   { value: "identified", label: "Identified" },
   { value: "researching", label: "Researching" },

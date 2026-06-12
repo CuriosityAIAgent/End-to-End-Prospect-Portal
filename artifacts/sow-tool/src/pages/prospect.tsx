@@ -21,10 +21,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { prospectingSections, prospectStatuses, prospectStatusLabel } from "@/lib/prospectingCatalog";
+import { prospectingSections, prospectStatuses, prospectStatusLabel, coldCallScript, coldCallCapture } from "@/lib/prospectingCatalog";
 import {
   Printer, Trash2, ChevronLeft, Save, AlertCircle, CheckCircle2, Sparkles,
-  Compass, Users, ListChecks, ExternalLink, ArrowRightCircle, Loader2, Lightbulb, Route as RouteIcon,
+  Compass, Users, ListChecks, ExternalLink, ArrowRightCircle, Loader2, Lightbulb, Route as RouteIcon, Phone,
 } from "lucide-react";
 
 export default function Prospect() {
@@ -305,7 +305,15 @@ export default function Prospect() {
           </div>
         </div>
 
-        {/* AI Briefing panel */}
+        {/* Step 1 — Cold call script */}
+        <ColdCallPanel
+          name={prospect.name}
+          rm={localMeta.relationshipManager}
+          data={localData}
+          onChange={handleDataChange}
+        />
+
+        {/* Step 2 — AI Briefing panel */}
         <BriefingPanel
           briefing={briefing}
           isGenerating={generateBriefing.isPending}
@@ -395,6 +403,92 @@ export default function Prospect() {
 
       </div>
     </Layout>
+  );
+}
+
+function ColdCallPanel({
+  name,
+  rm,
+  data,
+  onChange,
+}: {
+  name: string;
+  rm: string;
+  data: Record<string, any>;
+  onChange: (key: string, value: any) => void;
+}) {
+  const anchor = (data["coldcall.anchor"] || "").trim();
+  // Replacer functions (not string replacements) so values containing `$`
+  // patterns like `$&` are inserted verbatim rather than interpreted.
+  const fillScript = (s: string) =>
+    s
+      .replace(/\[Name\]/g, () => name || "there")
+      .replace(/\[RM\]/g, () => rm || "your name")
+      .replace(/\[anchor\]/g, () => anchor || "the connection we share");
+
+  const anchorField = coldCallCapture.find((f) => f.id === "coldcall.anchor")!;
+  const followUpFields = coldCallCapture.filter((f) => f.id !== "coldcall.anchor");
+
+  return (
+    <div className="border border-primary/20 bg-card shadow-sm">
+      <div className="p-5 border-b border-border flex items-start gap-3 bg-primary/5">
+        <Phone className="w-5 h-5 text-primary mt-0.5" />
+        <div>
+          <h2 className="font-serif text-xl">Cold Call Script</h2>
+          <p className="text-sm text-muted-foreground max-w-xl">
+            Step one — a structured talk track for the first approach. Anchor the call on a shared connection; cold should never feel cold.
+          </p>
+        </div>
+      </div>
+
+      <div className="p-6 flex flex-col gap-8">
+        {/* The anchor feeds the script below */}
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-foreground/90">{anchorField.label}</label>
+          <p className="text-xs text-muted-foreground">{anchorField.hint}</p>
+          <Input
+            value={data["coldcall.anchor"] || ""}
+            onChange={(e) => onChange("coldcall.anchor", e.target.value)}
+            placeholder={anchorField.placeholder}
+            className="rounded-none border-border bg-background"
+          />
+        </div>
+
+        {/* The talk track */}
+        <ol className="flex flex-col gap-5">
+          {coldCallScript.map((stage, i) => (
+            <li key={stage.id} className="flex gap-4">
+              <span className="flex-shrink-0 w-7 h-7 rounded-full border border-primary/30 text-primary flex items-center justify-center font-serif text-sm">
+                {i + 1}
+              </span>
+              <div className="space-y-1.5">
+                <p className="text-sm font-semibold text-foreground/90">{stage.stage}</p>
+                <p className="text-[15px] font-serif italic leading-relaxed text-foreground border-l-2 border-primary/30 pl-3">
+                  “{fillScript(stage.script)}”
+                </p>
+                <p className="text-xs text-muted-foreground">{stage.guidance}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+
+        {/* Log the call outcome */}
+        <div className="border-t border-border pt-6 space-y-6">
+          {followUpFields.map((field) => (
+            <div key={field.id} className="space-y-2">
+              <label className="text-sm font-semibold text-foreground/90">{field.label}</label>
+              <p className="text-xs text-muted-foreground">{field.hint}</p>
+              <Textarea
+                value={data[field.id] || ""}
+                onChange={(e) => onChange(field.id, e.target.value)}
+                placeholder={field.placeholder}
+                className="min-h-[70px] rounded-none border-border bg-card focus-visible:ring-primary"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
