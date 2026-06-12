@@ -1,0 +1,69 @@
+/* Oxford Blue & Parchment — shared brand tokens for the SoW prospecting-journey mockups.
+   Each component in this group imports this file. Do not edit per-variant. */
+
+:root {
+  /* Institutional Private Banking Theme — dark-by-default */
+  --background: 217 48% 8%; /* #0B1320 */
+  --foreground: 42 33% 94%; /* #F4F1EA */
+
+  --card: 217 48% 10%;
+  --card-foreground: 42 33% 94%;
+  --card-border: 217 30% 18%;
+
+  --popover: 217 48% 10%;
+  --popover-foreground: 42 33% 94%;
+  --popover-border: 217 30% 18%;
+
+  --primary: 42 40% 60%; /* Muted gold */
+  --primary-foreground: 217 48% 8%;
+
+  --secondary: 217 30% 18%;
+  --secondary-foreground: 42 33% 94%;
+
+  --muted: 217 30% 15%;
+  --muted-foreground: 217 20% 65%;
+
+  --accent: 217 30% 18%;
+  --accent-foreground: 42 33% 94%;
+
+  --destructive: 0 60% 40%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 217 30% 18%;
+  --input: 217 30% 18%;
+  --ring: 42 40% 60%;
+
+  /* In-brand chart palette: gold, steel, verified-green, amber, flag-red */
+  --chart-1: 42 40% 60%;
+  --chart-2: 200 30% 55%;
+  --chart-3: 150 30% 45%;
+  --chart-4: 30 50% 55%;
+  --chart-5: 0 55% 50%;
+
+  /* Sidebar tokens (in-brand) */
+  --sidebar: 217 48% 7%;
+  --sidebar-foreground: 42 33% 94%;
+  --sidebar-primary: 42 40% 60%;
+  --sidebar-primary-foreground: 217 48% 8%;
+  --sidebar-accent: 217 30% 14%;
+  --sidebar-accent-foreground: 42 33% 94%;
+  --sidebar-border: 217 30% 18%;
+  --sidebar-ring: 42 40% 60%;
+
+  --font-sans: 'Inter', sans-serif;
+  --font-serif: 'Playfair Display', serif;
+
+  --radius: 0.25rem; /* Sharp, precise corners */
+}
+
+/* Ensure the brand fonts apply even though the sandbox @theme doesn't map them. */
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Playfair Display', serif;
+  letter-spacing: -0.02em;
+}
