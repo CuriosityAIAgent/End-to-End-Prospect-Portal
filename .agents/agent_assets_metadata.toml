@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "HDiEagv4MzO-iaf8tzOc5"
+uri = "file://documents/Source_of_Wealth_Process_Document.docx"
+type = "word_document"
+title = "Source of Wealth — Due Diligence Process Document"
