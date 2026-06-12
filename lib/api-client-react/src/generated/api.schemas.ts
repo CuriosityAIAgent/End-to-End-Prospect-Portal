@@ -13,6 +13,27 @@ export interface Error {
   error: string;
 }
 
+export interface FileNoteCoverageItem {
+  label: string;
+  value: string;
+  detail?: string;
+}
+
+export interface FileNoteRewriteInput {
+  /** @minLength 1 */
+  contact: string;
+  meetingType?: string;
+  date?: string;
+  /** @minLength 1 */
+  note: string;
+  /** Confirmed discussion topics; when present the note is enhanced rather than rewritten from scratch */
+  coverage?: FileNoteCoverageItem[];
+}
+
+export interface FileNoteRewriteResult {
+  note: string;
+}
+
 export type ReviewType = typeof ReviewType[keyof typeof ReviewType];
 
 

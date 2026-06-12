@@ -31,6 +31,7 @@ An interactive private-banking workspace where a relationship manager creates a 
 - Prospecting content (source of truth): `artifacts/sow-tool/src/lib/prospectingCatalog.ts` (systematic-brief sections + the `coldCallScript` talk track and `coldCallCapture` log fields)
 - Completion calc: `artifacts/sow-tool/src/lib/progress.ts`
 - AI (OpenAI Responses API + live web_search): `lib/integrations-openai-ai-server`, used by the briefing route
+- Meeting File Note (shared across prospect + assessment): catalog `artifacts/sow-tool/src/lib/fileNoteCatalog.ts` (meeting types, 8 colour-coded coverage dimensions, `NULL_VALUES`/`isCovered`), panel `artifacts/sow-tool/src/components/file-note-panel.tsx`, AI route `artifacts/api-server/src/routes/fileNotes.ts`
 
 ## Architecture decisions
 
@@ -40,13 +41,16 @@ An interactive private-banking workspace where a relationship manager creates a 
 - The document checklist uses string states from `documentStates`: `not_applicable | outstanding | received | verified`.
 - Prospects mirror the assessments pattern: a single `data` jsonb blob (keyed by `prospectingCatalog` ids) plus a `briefing` jsonb and a `convertedAssessmentId` pointer. The frontend owns the data shape.
 - The AI briefing route (`POST /prospects/:id/briefing`) calls the OpenAI Responses API with the `web_search` tool, parses the model's JSON, collects `url_citation` annotations as sources, and rejects empty output (502) rather than persisting a hollow briefing.
-- `POST /prospects/:id/convert` runs select-check + insert-assessment + update-prospect inside one transaction with a `SELECT … FOR UPDATE` row lock, so concurrent converts can't create duplicate assessments; a second convert returns 409. The new assessment carries the prospect profile/segment/briefing into its `data` blob.
+- `POST /prospects/:id/convert` runs select-check + insert-assessment + update-prospect inside one transaction with a `SELECT … FOR UPDATE` row lock, so concurrent converts can't create duplicate assessments; a second convert returns 409. The new assessment carries the prospect profile/segment/briefing into its `data` blob. It also lifts any prospect-stage `fileNote` to the top level of the new assessment's `data` so the Meeting File Note survives conversion.
+- The Meeting File Note is persisted in the same `data` jsonb blob under a single `fileNote` key (frontend owns the shape `{meetingType,date,note,coverage}`). `calculateProgress` ignores it (counts only catalog ids), so it never affects completion %.
+- `POST /file-notes/rewrite` is one stateless AI endpoint: no `coverage` ⇒ "rewrite into professional format"; `coverage` present ⇒ "enhance with discussion details". Mirrors the briefing route's OpenAI Responses usage but without the `web_search` tool. Rejects empty model output (502).
 
 ## Product
 
 - Journey home (`/`): one continuous end-to-end view of every relationship (prospects + onboarding assessments) on a single 5-stage rail — Identify → Cold Call → Brief → Meet → Onboard. Derived purely on the frontend (no backend stage column) via `lib/journey.ts`: a "Next Actions" worklist, live per-stage counts, stage filters, overview-derived metrics, and both Add Prospect / New Assessment dialogs. Replaces the former separate Dashboard + Prospecting landing areas.
 - Assessment workspace: sectioned questionnaire (profile, applicable wealth categories with per-document checklists, source of funds, plausibility checks, red flags, sign-off, master checklist), debounced autosave, live completion %, status/risk controls, export/print, delete.
 - Prospecting: pipeline overview (totals, briefed, converted) and a prospect list; create prospects.
+- Meeting File Note (shared, on both the prospect file and the client assessment): banker writes a free-form note (with word count), then runs a server-side AI "Rewrite in professional format" (preview → accept/retry/dismiss). A colour-coded 8-dimension "Discussion coverage" grid (icons + guidance hints) prompts what a complete meeting touches; marking topics enables a second AI "Enhance" pass that weaves the confirmed details in. Copy + print-friendly. One note per file.
 - Prospect workspace: an end-to-end flow — (1) a cold-call script (structured talk track, live-personalised with the prospect name/RM/anchor, plus call-outcome log fields); (2) an AI pre-meeting briefing (live web search) showing summary, talking points, referral routes, recommended approach and cited sources; the systematic prospecting brief (5 profile dimensions, 3 channels, 4 operational questions) with debounced autosave; print; and (3) convert to a client SoW assessment (whose questionnaire is itself the meeting question guide).
 
 ## User preferences
@@ -55,7 +59,8 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- One Meeting File Note per file: a second meeting overwrites the first (single `fileNote` blob). Separate per-meeting notes would need a new keyed shape.
+- The File Note "Enhance" pass must only receive coverage dimensions the banker explicitly engaged with AND whose value is non-null (`isCovered`). Sending a defaulted-but-non-null dropdown (e.g. Relationship Temperature's "Strong and growing") would feed the AI an unconfirmed "fact" that it fabricates into a regulator-facing note. `runEnhance` filters to `!!entry && isCovered(entry.value)` (matching the print summary); the prompt's "ignore Not discussed" line is only a backstop.
 
 ## Pointers
 

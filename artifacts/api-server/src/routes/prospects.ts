@@ -344,6 +344,11 @@ router.post("/prospects/:id/convert", async (req, res): Promise<void> => {
       };
     }
 
+    // Lift any meeting file note captured at the prospect stage to the top
+    // level so the assessment's File Note panel keeps showing it after convert
+    // (the rest of the prospect's data is nested under `prospectProfile`).
+    const prospectData = (prospect.data ?? {}) as Record<string, unknown>;
+
     const [assessment] = await tx
       .insert(assessmentsTable)
       .values({
@@ -352,9 +357,10 @@ router.post("/prospects/:id/convert", async (req, res): Promise<void> => {
         reviewType: "onboarding",
         status: "draft",
         data: {
-          prospectProfile: prospect.data ?? {},
+          prospectProfile: prospectData,
           prospectBriefing: prospect.briefing ?? null,
           prospectSegment: prospect.segment ?? null,
+          ...(prospectData.fileNote ? { fileNote: prospectData.fileNote } : {}),
         },
       })
       .returning();

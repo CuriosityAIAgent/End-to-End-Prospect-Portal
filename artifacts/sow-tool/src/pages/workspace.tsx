@@ -10,6 +10,7 @@ import {
   getGetOverviewQueryKey
 } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
+import { FileNotePanel } from "@/components/file-note-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -294,6 +295,14 @@ export default function Workspace() {
             <div><strong>Status:</strong> {statusOptions.find(o => o.value === localMeta.status)?.label}</div>
           </div>
         </div>
+
+        {/* Meeting file note */}
+        <FileNotePanel
+          value={localData.fileNote}
+          onChange={(v) => handleDataChange("fileNote", v)}
+          contactName={assessment.clientName}
+          defaultMeetingType="Client review"
+        />
 
         {/* Questionnaire Form */}
         <div className="flex flex-col gap-12">

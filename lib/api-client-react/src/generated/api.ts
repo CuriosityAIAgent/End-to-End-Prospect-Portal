@@ -25,6 +25,8 @@ import type {
   AssessmentSummary,
   AssessmentUpdate,
   Error,
+  FileNoteRewriteInput,
+  FileNoteRewriteResult,
   HealthStatus,
   Overview,
   Prospect,
@@ -1072,5 +1074,77 @@ export const useConvertProspect = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getConvertProspectMutationOptions(options));
+    }
+
+export const getRewriteFileNoteUrl = () => {
+
+
+
+
+  return `/api/file-notes/rewrite`
+}
+
+/**
+ * Stateless AI helper used by both the prospect and client file-note panels. Without `coverage` it rewrites the raw note into a structured professional file note; with `coverage` it enhances an existing draft by weaving in the banker's confirmed discussion topics.
+ * @summary Rewrite or enhance a meeting file note into professional private-banking format
+ */
+export const rewriteFileNote = async (fileNoteRewriteInput: FileNoteRewriteInput, options?: RequestInit): Promise<FileNoteRewriteResult> => {
+
+  return customFetch<FileNoteRewriteResult>(getRewriteFileNoteUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      fileNoteRewriteInput,)
+  }
+);}
+
+
+
+
+export const getRewriteFileNoteMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rewriteFileNote>>, TError,{data: BodyType<FileNoteRewriteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rewriteFileNote>>, TError,{data: BodyType<FileNoteRewriteInput>}, TContext> => {
+
+const mutationKey = ['rewriteFileNote'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rewriteFileNote>>, {data: BodyType<FileNoteRewriteInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  rewriteFileNote(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RewriteFileNoteMutationResult = NonNullable<Awaited<ReturnType<typeof rewriteFileNote>>>
+    export type RewriteFileNoteMutationBody = BodyType<FileNoteRewriteInput>
+    export type RewriteFileNoteMutationError = ErrorType<Error>
+
+    /**
+ * @summary Rewrite or enhance a meeting file note into professional private-banking format
+ */
+export const useRewriteFileNote = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rewriteFileNote>>, TError,{data: BodyType<FileNoteRewriteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rewriteFileNote>>,
+        TError,
+        {data: BodyType<FileNoteRewriteInput>},
+        TContext
+      > => {
+      return useMutation(getRewriteFileNoteMutationOptions(options));
     }
 

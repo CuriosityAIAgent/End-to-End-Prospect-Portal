@@ -293,3 +293,28 @@ export const ConvertProspectParams = zod.object({
 })
 
 
+/**
+ * Stateless AI helper used by both the prospect and client file-note panels. Without `coverage` it rewrites the raw note into a structured professional file note; with `coverage` it enhances an existing draft by weaving in the banker's confirmed discussion topics.
+ * @summary Rewrite or enhance a meeting file note into professional private-banking format
+ */
+
+
+
+
+export const RewriteFileNoteBody = zod.object({
+  "contact": zod.string().min(1),
+  "meetingType": zod.string().optional(),
+  "date": zod.string().optional(),
+  "note": zod.string().min(1),
+  "coverage": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string(),
+  "detail": zod.string().optional()
+})).optional().describe('Confirmed discussion topics; when present the note is enhanced rather than rewritten from scratch')
+})
+
+export const RewriteFileNoteResponse = zod.object({
+  "note": zod.string()
+})
+
+

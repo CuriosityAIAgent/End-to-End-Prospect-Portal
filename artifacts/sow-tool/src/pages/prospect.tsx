@@ -13,6 +13,7 @@ import {
   getGetOverviewQueryKey,
 } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
+import { FileNotePanel } from "@/components/file-note-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -319,6 +320,14 @@ export default function Prospect() {
           isGenerating={generateBriefing.isPending}
           onGenerate={handleGenerate}
           error={briefingError}
+        />
+
+        {/* Step 3 — Meeting file note */}
+        <FileNotePanel
+          value={localData.fileNote}
+          onChange={(v) => handleDataChange("fileNote", v)}
+          contactName={prospect.name}
+          defaultMeetingType="Prospect first meeting"
         />
 
         {/* Questionnaire sections */}

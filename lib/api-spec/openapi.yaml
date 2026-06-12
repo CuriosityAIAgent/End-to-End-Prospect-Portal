@@ -14,6 +14,8 @@ tags:
     description: Source of Wealth client assessments
   - name: prospects
     description: Prospecting pipeline and AI pre-meeting briefings
+  - name: file-notes
+    description: AI rewrite and enhancement of meeting file notes
 paths:
   /healthz:
     get:
@@ -306,6 +308,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /file-notes/rewrite:
+    post:
+      operationId: rewriteFileNote
+      tags: [file-notes]
+      summary: Rewrite or enhance a meeting file note into professional private-banking format
+      description: >-
+        Stateless AI helper used by both the prospect and client file-note
+        panels. Without `coverage` it rewrites the raw note into a structured
+        professional file note; with `coverage` it enhances an existing draft by
+        weaving in the banker's confirmed discussion topics.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileNoteRewriteInput"
+      responses:
+        "200":
+          description: The rewritten or enhanced file note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileNoteRewriteResult"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: Rewrite generation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     HealthStatus:
@@ -322,6 +359,41 @@ components:
           type: string
       required:
         - error
+    FileNoteCoverageItem:
+      type: object
+      required: [label, value]
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+        detail:
+          type: string
+    FileNoteRewriteInput:
+      type: object
+      required: [contact, note]
+      properties:
+        contact:
+          type: string
+          minLength: 1
+        meetingType:
+          type: string
+        date:
+          type: string
+        note:
+          type: string
+          minLength: 1
+        coverage:
+          type: array
+          description: Confirmed discussion topics; when present the note is enhanced rather than rewritten from scratch
+          items:
+            $ref: "#/components/schemas/FileNoteCoverageItem"
+    FileNoteRewriteResult:
+      type: object
+      required: [note]
+      properties:
+        note:
+          type: string
     ReviewType:
       type: string
       enum: [onboarding, periodic_review, trigger_event]
