@@ -38,3 +38,7 @@ export * from './sourceOfWealthDraftInput';
 export * from './sourceOfWealthDraftResult';
 export * from './sourceOfWealthStatement';
 export * from './statusCount';
+export * from './transcriptionInput';
+export * from './transcriptionResult';
+export * from './uploadUrlRequest';
+export * from './uploadUrlResponse';

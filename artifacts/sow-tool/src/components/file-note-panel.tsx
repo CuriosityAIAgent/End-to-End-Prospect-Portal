@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { VoiceInput } from "@/components/voice-input";
+import { SectionInfo } from "@/components/section-info";
 import {
   coverageDimensions,
   meetingTypes,
@@ -79,6 +81,12 @@ export function FileNotePanel({
 
   const setCoverage = (id: string, entry: CoverageEntry) => {
     patch({ coverage: { ...effective.coverage, [id]: entry } });
+  };
+
+  const appendTranscript = (text: string) => {
+    const existing = effective.note;
+    const next = existing.trim().length === 0 ? text : `${existing.replace(/\s*$/, "")} ${text}`;
+    patch({ note: next });
   };
 
   const runRewrite = () => {
@@ -169,7 +177,10 @@ export function FileNotePanel({
       <div className="p-5 border-b border-border flex items-start gap-3 bg-primary/5">
         <NotebookPen className="w-5 h-5 text-primary mt-0.5" />
         <div>
-          <h2 className="font-serif text-xl">Meeting File Note</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-serif text-xl">Meeting File Note</h2>
+            <SectionInfo id="fileNote" />
+          </div>
           <p className="text-sm text-muted-foreground max-w-2xl">
             Capture the conversation in your own words, then let the assistant shape it into a
             regulator-ready file note. Confirm what you covered to colour in the full picture.
@@ -212,9 +223,12 @@ export function FileNotePanel({
 
         {/* Raw note */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <label className="text-sm font-semibold text-foreground/90">Your notes</label>
-            <span className="text-xs text-muted-foreground tabular-nums">{words} {words === 1 ? "word" : "words"}</span>
+            <div className="flex items-center gap-3">
+              <VoiceInput onTranscript={appendTranscript} className="print:hidden" />
+              <span className="text-xs text-muted-foreground tabular-nums">{words} {words === 1 ? "word" : "words"}</span>
+            </div>
           </div>
           <p className="text-xs text-muted-foreground print:hidden">
             Jot it down however it comes out — names, numbers, what was said, what you promised. The detail

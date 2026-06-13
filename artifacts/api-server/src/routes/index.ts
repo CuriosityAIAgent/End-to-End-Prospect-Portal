@@ -4,6 +4,8 @@ import assessmentsRouter from "./assessments";
 import prospectsRouter from "./prospects";
 import fileNotesRouter from "./fileNotes";
 import sourceOfWealthRouter from "./sourceOfWealth";
+import transcriptionRouter from "./transcription";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
@@ -12,5 +14,7 @@ router.use(assessmentsRouter);
 router.use(prospectsRouter);
 router.use(fileNotesRouter);
 router.use(sourceOfWealthRouter);
+router.use(transcriptionRouter);
+router.use(storageRouter);
 
 export default router;

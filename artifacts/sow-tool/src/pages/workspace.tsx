@@ -12,6 +12,7 @@ import {
 import { Layout } from "@/components/layout";
 import { FileNotePanel } from "@/components/file-note-panel";
 import { SourceOfWealthSection } from "@/components/source-of-wealth-section";
+import { SectionInfo } from "@/components/section-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -308,7 +309,7 @@ export default function Workspace() {
         <div className="flex flex-col gap-12">
           
           {/* Section 1: Source of Wealth Statement */}
-          <Section title="1. Source of Wealth Statement" icon={<Briefcase className="w-5 h-5" />}>
+          <Section title="1. Source of Wealth Statement" icon={<Briefcase className="w-5 h-5" />} helpId="assessment.profile">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold">Client Reference / RM ID</label>
@@ -342,7 +343,7 @@ export default function Workspace() {
           </Section>
 
           {/* Section 2: Wealth Categories */}
-          <Section title="2. Wealth Categories" icon={<FileText className="w-5 h-5" />}>
+          <Section title="2. Wealth Categories" icon={<FileText className="w-5 h-5" />} helpId="assessment.wealthCategories">
             <p className="text-sm text-muted-foreground mb-6">
               Select all categories that apply to this client's overall wealth footprint. Expand each to complete the relevant questions and document checks.
             </p>
@@ -433,7 +434,7 @@ export default function Workspace() {
           </Section>
 
           {/* Section 3: Source of Funds */}
-          <Section title="3. Source of Funds (Specific Transaction)" icon={<FileText className="w-5 h-5" />}>
+          <Section title="3. Source of Funds (Specific Transaction)" icon={<FileText className="w-5 h-5" />} helpId="assessment.sourceOfFunds">
             <div className="space-y-8">
               {sourceOfFundsQuestions.map((q) => (
                 <div key={q.id} className="space-y-2">
@@ -473,7 +474,7 @@ export default function Workspace() {
           </Section>
 
           {/* Section 4: Plausibility */}
-          <Section title="4. Plausibility & Corroboration" icon={<CheckSquare className="w-5 h-5" />}>
+          <Section title="4. Plausibility & Corroboration" icon={<CheckSquare className="w-5 h-5" />} helpId="assessment.plausibility">
             <p className="text-sm text-muted-foreground mb-6">
               Review and confirm the plausibility of the overall picture presented.
             </p>
@@ -492,7 +493,7 @@ export default function Workspace() {
           </Section>
 
           {/* Section 5: Red Flags */}
-          <Section title="5. Red Flags & Escalation" icon={<ShieldAlert className="w-5 h-5 text-amber-500" />} className="border-t-4 border-amber-500/50">
+          <Section title="5. Red Flags & Escalation" icon={<ShieldAlert className="w-5 h-5 text-amber-500" />} className="border-t-4 border-amber-500/50" helpId="assessment.redFlags">
             <p className="text-sm text-muted-foreground mb-6">
               Identify any risk factors present during this assessment. Selecting any of these may require escalation.
             </p>
@@ -521,7 +522,7 @@ export default function Workspace() {
           </Section>
 
           {/* Section 6: Sign-off */}
-          <Section title="6. RM Assessment & Sign-off" icon={<FileText className="w-5 h-5" />}>
+          <Section title="6. RM Assessment & Sign-off" icon={<FileText className="w-5 h-5" />} helpId="assessment.signOff">
             <div className="space-y-8">
               {signOffFields.map((field) => (
                 <div key={field.id} className="space-y-2">
@@ -571,12 +572,13 @@ export default function Workspace() {
 }
 
 // Sub-component for consistent section styling
-function Section({ title, icon, children, className = "" }: { title: string, icon: React.ReactNode, children: React.ReactNode, className?: string }) {
+function Section({ title, icon, children, className = "", helpId }: { title: string, icon: React.ReactNode, children: React.ReactNode, className?: string, helpId?: string }) {
   return (
     <section className={`bg-card/50 border border-border shadow-sm p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700 ${className}`}>
       <div className="flex items-center gap-3 mb-8 border-b border-border pb-4">
         <div className="text-primary">{icon}</div>
         <h2 className="text-2xl font-serif text-foreground">{title}</h2>
+        {helpId && <SectionInfo id={helpId} className="ml-1" />}
       </div>
       <div>
         {children}

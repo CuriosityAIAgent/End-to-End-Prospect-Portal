@@ -12,6 +12,8 @@ import {
   getGetOverviewQueryKey,
 } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
+import { OverviewVideo } from "@/components/overview-video";
+import { SectionInfo } from "@/components/section-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -158,7 +160,10 @@ export default function Journey() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-serif text-foreground mb-2">Prospecting Journey</h1>
+            <div className="flex items-center gap-2 mb-2">
+              <h1 className="text-4xl font-serif text-foreground">Prospecting Journey</h1>
+              <SectionInfo id="journey" />
+            </div>
             <p className="text-muted-foreground">
               Every relationship, from first contact to onboarded client.
             </p>
@@ -306,6 +311,9 @@ export default function Journey() {
             </div>
           ))}
         </div>
+
+        {/* Overview explainer video (hidden until a video is registered) */}
+        <OverviewVideo />
 
         {/* Stage rail */}
         <section className="relative">

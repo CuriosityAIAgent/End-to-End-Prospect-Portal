@@ -14,6 +14,7 @@ import {
 } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { FileNotePanel } from "@/components/file-note-panel";
+import { SectionInfo } from "@/components/section-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -333,7 +334,7 @@ export default function Prospect() {
         {/* Questionnaire sections */}
         <div className="flex flex-col gap-12">
           {prospectingSections.map((section) => (
-            <Section key={section.id} title={section.title} icon={sectionIcon(section.id)}>
+            <Section key={section.id} title={section.title} icon={sectionIcon(section.id)} helpId={`prospect.${section.id}`}>
               <p className="text-sm text-muted-foreground mb-6">{section.blurb}</p>
               <div className="space-y-8">
                 {section.fields.map((field) => (
@@ -355,7 +356,7 @@ export default function Prospect() {
 
         {/* Convert */}
         <div className="print:hidden border-t border-border pt-8">
-          <Section title="Convert to Client" icon={<ArrowRightCircle className="w-5 h-5" />}>
+          <Section title="Convert to Client" icon={<ArrowRightCircle className="w-5 h-5" />} helpId="prospect.convert">
             {isConverted ? (
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 border border-emerald-500/20 bg-emerald-500/5">
                 <div className="flex items-start gap-3">
@@ -443,7 +444,10 @@ function ColdCallPanel({
       <div className="p-5 border-b border-border flex items-start gap-3 bg-primary/5">
         <Phone className="w-5 h-5 text-primary mt-0.5" />
         <div>
-          <h2 className="font-serif text-xl">Cold Call Script</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-serif text-xl">Cold Call Script</h2>
+            <SectionInfo id="prospect.coldCall" />
+          </div>
           <p className="text-sm text-muted-foreground max-w-xl">
             Step one — a structured talk track for the first approach. Anchor the call on a shared connection; cold should never feel cold.
           </p>
@@ -518,7 +522,10 @@ function BriefingPanel({
         <div className="flex items-start gap-3">
           <Sparkles className="w-5 h-5 text-primary mt-0.5" />
           <div>
-            <h2 className="font-serif text-xl">Pre-Meeting Briefing</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-serif text-xl">Pre-Meeting Briefing</h2>
+              <SectionInfo id="prospect.briefing" />
+            </div>
             <p className="text-sm text-muted-foreground max-w-xl">
               An AI-written briefing backed by a live internet search, combined with your captured notes. Verify all facts before relying on them.
             </p>
@@ -621,12 +628,13 @@ function BriefingPanel({
   );
 }
 
-function Section({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
+function Section({ title, icon, children, helpId }: { title: string; icon: ReactNode; children: ReactNode; helpId?: string }) {
   return (
     <section className="scroll-mt-24">
       <div className="flex items-center gap-3 mb-6 pb-3 border-b border-border">
         <span className="text-primary">{icon}</span>
         <h2 className="text-2xl font-serif">{title}</h2>
+        {helpId && <SectionInfo id={helpId} className="ml-1" />}
       </div>
       {children}
     </section>

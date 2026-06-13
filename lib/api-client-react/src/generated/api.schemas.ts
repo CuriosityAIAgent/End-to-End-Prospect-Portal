@@ -5,6 +5,32 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface UploadUrlRequest {
+  /**
+     * Original file name.
+     * @minLength 1
+     */
+  name: string;
+  /**
+     * File size in bytes.
+     * @minimum 1
+     */
+  size: number;
+  /**
+     * MIME type of the file (e.g. `image/jpeg`).
+     * @minLength 1
+     */
+  contentType: string;
+}
+
+export interface UploadUrlResponse {
+  /** Presigned GCS URL for PUT upload. */
+  uploadURL: string;
+  /** Normalized object path (e.g. `/objects/uploads/uuid`). */
+  objectPath: string;
+  metadata?: UploadUrlRequest;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -65,6 +91,23 @@ export interface SourceOfWealthStatement {
 
 export interface SourceOfWealthDraftResult {
   statement: SourceOfWealthStatement;
+}
+
+export interface TranscriptionInput {
+  /**
+     * Base64-encoded audio clip (no data-URI prefix)
+     * @minLength 1
+     */
+  audio: string;
+  /**
+     * Audio container/extension, e.g. webm, mp4, wav, mp3
+     * @minLength 1
+     */
+  format: string;
+}
+
+export interface TranscriptionResult {
+  text: string;
 }
 
 export type ReviewType = typeof ReviewType[keyof typeof ReviewType];
