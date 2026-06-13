@@ -84,8 +84,8 @@ export const helpCatalog: Record<string, HelpEntry> = {
   "prospect.coldCall": {
     title: "Cold Call Script",
     body: [
-      "A structured talk track for the first approach: open with the anchor, earn the next minute, ask an open question, handle the reflex 'no', ask for a meeting rather than business, then confirm and close the loop.",
-      "The script personalises to the prospect, RM and your chosen anchor. Log the outcome below so the journey stays current.",
+      "The only goal of this call is to secure a meeting or virtual call — never to sell. The script assumes you sent a short follow-up email 1–2 days earlier, and is organised around the four ways a call can land: through to the prospect, an assistant or gatekeeper, a company switchboard, or voicemail.",
+      "The words personalise to the prospect and RM automatically. Log the outcome below so the journey stays current.",
     ],
   },
   "prospect.briefing": {

@@ -23,7 +23,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { prospectingSections, prospectStatuses, prospectStatusLabel, coldCallScript, coldCallCapture } from "@/lib/prospectingCatalog";
+import { prospectingSections, prospectStatuses, prospectStatusLabel, coldCallScenarios, coldCallCapture, coldCallObjective, coldCallEmailReminder, coldCallDeliveryNotes } from "@/lib/prospectingCatalog";
 import {
   Printer, Trash2, ChevronLeft, Save, AlertCircle, CheckCircle2, Sparkles,
   Compass, Users, ListChecks, ExternalLink, ArrowRightCircle, Loader2, Lightbulb, Route as RouteIcon, Phone,
@@ -427,17 +427,12 @@ function ColdCallPanel({
   data: Record<string, any>;
   onChange: (key: string, value: any) => void;
 }) {
-  const anchor = (data["coldcall.anchor"] || "").trim();
   // Replacer functions (not string replacements) so values containing `$`
   // patterns like `$&` are inserted verbatim rather than interpreted.
   const fillScript = (s: string) =>
     s
       .replace(/\[Name\]/g, () => name || "there")
-      .replace(/\[RM\]/g, () => rm || "your name")
-      .replace(/\[anchor\]/g, () => anchor || "the connection we share");
-
-  const anchorField = coldCallCapture.find((f) => f.id === "coldcall.anchor")!;
-  const followUpFields = coldCallCapture.filter((f) => f.id !== "coldcall.anchor");
+      .replace(/\[RM\]/g, () => rm || "your name");
 
   return (
     <div className="border border-primary/20 bg-card shadow-sm">
@@ -449,45 +444,64 @@ function ColdCallPanel({
             <SectionInfo id="prospect.coldCall" />
           </div>
           <p className="text-sm text-muted-foreground max-w-xl">
-            Step one — a structured talk track for the first approach. Anchor the call on a shared connection; cold should never feel cold.
+            Step one — the words to secure a meeting, organised around the four ways the call can land.
           </p>
         </div>
       </div>
 
       <div className="p-6 flex flex-col gap-8">
-        {/* The anchor feeds the script below */}
-        <div className="space-y-2">
-          <label className="text-sm font-semibold text-foreground/90">{anchorField.label}</label>
-          <p className="text-xs text-muted-foreground">{anchorField.hint}</p>
-          <Input
-            value={data["coldcall.anchor"] || ""}
-            onChange={(e) => onChange("coldcall.anchor", e.target.value)}
-            placeholder={anchorField.placeholder}
-            className="rounded-none border-border bg-background"
-          />
+        {/* Framing — objective + email reminder */}
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-foreground border-l-2 border-primary pl-3">
+            {coldCallObjective}
+          </p>
+          <p className="text-xs text-muted-foreground pl-3">{coldCallEmailReminder}</p>
         </div>
 
-        {/* The talk track */}
-        <ol className="flex flex-col gap-5">
-          {coldCallScript.map((stage, i) => (
-            <li key={stage.id} className="flex gap-4">
-              <span className="flex-shrink-0 w-7 h-7 rounded-full border border-primary/30 text-primary flex items-center justify-center font-serif text-sm">
-                {i + 1}
-              </span>
-              <div className="space-y-1.5">
-                <p className="text-sm font-semibold text-foreground/90">{stage.stage}</p>
-                <p className="text-[15px] font-serif italic leading-relaxed text-foreground border-l-2 border-primary/30 pl-3">
-                  “{fillScript(stage.script)}”
-                </p>
-                <p className="text-xs text-muted-foreground">{stage.guidance}</p>
+        {/* The four scenarios */}
+        <div className="flex flex-col gap-6">
+          {coldCallScenarios.map((scenario, i) => (
+            <div key={scenario.id} className="border border-border bg-background/40">
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-primary/5">
+                <span className="flex-shrink-0 w-7 h-7 rounded-full border border-primary/30 text-primary flex items-center justify-center font-serif text-sm">
+                  {i + 1}
+                </span>
+                <h3 className="font-serif text-lg">{scenario.title}</h3>
               </div>
-            </li>
+              <div className="p-4 flex flex-col gap-4">
+                {scenario.lines.map((line, j) => (
+                  <div key={j} className="space-y-1.5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-primary/80">
+                      {line.subLabel}
+                    </p>
+                    <p className="text-[15px] font-serif italic leading-relaxed text-foreground border-l-2 border-primary/30 pl-3">
+                      “{fillScript(line.script)}”
+                    </p>
+                    <p className="text-xs text-muted-foreground">{line.guidance}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           ))}
-        </ol>
+        </div>
+
+        {/* Delivery notes */}
+        <div className="border border-dashed border-border bg-muted/30 p-4 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-foreground/70">
+            Delivery notes
+          </p>
+          <ul className="list-disc pl-5 space-y-1.5">
+            {coldCallDeliveryNotes.map((note, i) => (
+              <li key={i} className="text-xs text-muted-foreground leading-relaxed">
+                {note}
+              </li>
+            ))}
+          </ul>
+        </div>
 
         {/* Log the call outcome */}
         <div className="border-t border-border pt-6 space-y-6">
-          {followUpFields.map((field) => (
+          {coldCallCapture.map((field) => (
             <div key={field.id} className="space-y-2">
               <label className="text-sm font-semibold text-foreground/90">{field.label}</label>
               <p className="text-xs text-muted-foreground">{field.hint}</p>

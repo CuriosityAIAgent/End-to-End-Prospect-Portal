@@ -126,77 +126,145 @@ export const prospectingSections: ProspectSection[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Step 1 — the cold call. A structured talk track for the first approach.
+// Step 1 — the cold call. The only goal is to secure a meeting or virtual call,
+// never to sell. The script assumes a short follow-up email was sent 1–2 days
+// earlier and is organised around the four ways a call can land. It is
+// client-type agnostic (no segmentation, no affiliation anchor).
 // The script is reference content; the capture fields below log the outcome and
 // are stored on the prospect's `data` blob like every other answer.
 // ---------------------------------------------------------------------------
-export type ColdCallStage = {
-  id: string;
-  stage: string;
-  // Suggested words. Bracketed tokens [Name], [RM], [anchor] are substituted
-  // live in the UI with the prospect's name, the RM and the captured anchor.
+
+// Top-of-panel framing.
+export const coldCallObjective =
+  "The only goal of this call is to secure a meeting or virtual call — not to sell the bank, products, or your services.";
+
+export const coldCallEmailReminder =
+  "Assumes you sent a short email 1–2 days ago saying you'd follow up by phone. Lead with 'I promised I'd follow up' in every scenario — it turns a cold call into an expected one.";
+
+export type ColdCallLine = {
+  // A short sub-label for the line (e.g. "The ask").
+  subLabel: string;
+  // Suggested words. Bracketed tokens [Name] and [RM] are substituted live in
+  // the UI with the prospect's name and the RM.
   script: string;
   guidance: string;
 };
 
-export const coldCallScript: ColdCallStage[] = [
+export type ColdCallScenario = {
+  id: string;
+  title: string;
+  lines: ColdCallLine[];
+};
+
+export const coldCallScenarios: ColdCallScenario[] = [
   {
-    id: "open",
-    stage: "Open with the anchor — never truly cold",
-    script:
-      "Good morning [Name], this is [RM] at the Private Bank. We haven't met — I'm calling because [anchor].",
-    guidance:
-      "Lead with the shared affiliation in the first sentence: a mutual connection, a fund or board you both touch, an alma mater. It buys you the next thirty seconds.",
+    id: "prospect",
+    title: "Through to the prospect",
+    lines: [
+      {
+        subLabel: "Open (reference the email)",
+        script:
+          "Good morning [Name], this is [RM] from the Private Bank. I sent you a short note earlier this week and promised I'd follow up with a quick call — is now a reasonable moment for two minutes?",
+        guidance: "Pause and let them answer before going on.",
+      },
+      {
+        subLabel: "Reason for the call",
+        script:
+          "I'll keep this brief. I look after a small number of clients, and the reason I wanted to speak to you directly rather than just email is simply to introduce myself properly — not to sell you anything today.",
+        guidance: "Keep it to one or two lines; no product talk.",
+      },
+      {
+        subLabel: "The ask",
+        script:
+          "What I'd genuinely value is a short, no-obligation conversation — 20 to 30 minutes, in person or by video, whichever is easier for you. Nothing to prepare and nothing to sign. Would [first option] or [second option] suit you better?",
+        guidance: "Offer two specific times so the answer is when, not whether.",
+      },
+      {
+        subLabel: "Close",
+        script:
+          "Perfect — I'll send a calendar note to confirm, and I look forward to speaking properly then. Thank you, [Name].",
+        guidance: "Confirm in writing the same day and log the outcome below.",
+      },
+    ],
   },
   {
-    id: "relevance",
-    stage: "Earn the next minute",
-    script:
-      "I'll be brief. I work with a small number of clients in your world and, given where you are right now, I thought a short conversation could be worth your time.",
-    guidance:
-      "One sentence on why you're worth listening to — tied to their situation, not a product pitch. Reference something specific you know (a liquidity event, a new role).",
+    id: "gatekeeper",
+    title: "Assistant / gatekeeper",
+    lines: [
+      {
+        subLabel: "Open",
+        script:
+          "Good morning, this is [RM] from the Private Bank. I sent [Name] a short email earlier this week and promised I'd follow up with a call — may I speak with them, or is there a better time you'd suggest I try?",
+        guidance: "Treat the assistant as an ally, not an obstacle.",
+      },
+      {
+        subLabel: "If the prospect is unavailable",
+        script:
+          "No problem at all. Perhaps you can help me — I'm not trying to sell anything; I'd simply like to arrange a brief 20-minute introduction with [Name], in person or by video. What's the best way to get a short slot in their diary? I'm very happy to work around their availability.",
+        guidance: "Make their job easy; be transparent about the purpose.",
+      },
+      {
+        subLabel: "Lock the next step",
+        script:
+          "Thank you, that's really helpful. So I'm not chasing blindly — would it be best if I called you back on [day], or shall I send the details to you directly to put in front of them?",
+        guidance: "Always leave with the assistant's name and a concrete next action.",
+      },
+    ],
   },
   {
-    id: "question",
-    stage: "Ask a question that invites them in",
-    script:
-      "Before I say any more — how are you currently thinking about managing things as this next stage plays out?",
-    guidance:
-      "An open, homework-backed question gets them talking and signals you understand their situation. Listen more than you speak.",
+    id: "switchboard",
+    title: "Company switchboard",
+    lines: [
+      {
+        subLabel: "Open",
+        script:
+          "Good morning, could you put me through to [Name]'s office, please? This is [RM] from the Private Bank — I'm following up on an email I sent them earlier this week.",
+        guidance: "Calm certainty; referencing the email signals you're expected.",
+      },
+      {
+        subLabel: "If asked what it's regarding",
+        script:
+          "Of course — it's a personal follow-up to an email I sent [Name]; they're expecting my call. If they're not available, their assistant's line would be perfect.",
+        guidance: "Stay specific and unflustered.",
+      },
+      {
+        subLabel: "If they can't connect you",
+        script:
+          "No problem. Could you point me to the best direct line or email for their office, so I can reach them at a convenient time? I'd be grateful.",
+        guidance: "Leave with a better route even if you don't get through.",
+      },
+    ],
   },
   {
-    id: "objection",
-    stage: "Handle the reflex 'no'",
-    script:
-      "Of course — most people I speak to already have a bank they're happy with. I'm not asking you to change anything; I'd just value the chance to offer a second perspective.",
-    guidance:
-      "Expect 'I already have a bank' or 'I'm not looking.' Acknowledge it, don't push. Reframe around perspective and access, not switching.",
-  },
-  {
-    id: "ask",
-    stage: "Ask for a meeting, not for business",
-    script:
-      "Could we put twenty minutes in the diary — a coffee, no agenda? Would the early part of next week or the one after suit you better?",
-    guidance:
-      "Make the ask small and specific. Offer two concrete options so the answer is a choice of when, not whether.",
-  },
-  {
-    id: "close",
-    stage: "Confirm and close the loop",
-    script:
-      "Excellent — I'll send a short note to confirm. Thank you, [Name], I look forward to it.",
-    guidance:
-      "Lock the next step, confirm in writing the same day, and log the outcome below. If they declined, capture why and a sensible time to revisit.",
+    id: "voicemail",
+    title: "Voicemail",
+    lines: [
+      {
+        subLabel: "Message",
+        script:
+          "Hello [Name], this is [RM] from the Private Bank — I sent you a short email earlier this week and promised I'd follow up with a quick call. Nothing urgent and nothing to sell; I'd simply like to arrange a brief introduction at a time that suits you. I'll try you again on [day], or feel free to reach me directly on [number]. Thank you, and I look forward to speaking.",
+        guidance: "Never pitch into a voicemail; keep it short and warm.",
+      },
+      {
+        subLabel: "Follow-through",
+        script:
+          "Just tried to reach you by phone as promised; happy to work around your diary.",
+        guidance:
+          "After the voicemail, reply to your original email with this line. Three respectful touches without ever being pushy.",
+      },
+    ],
   },
 ];
 
+export const coldCallDeliveryNotes: string[] = [
+  "One objective only: the meeting. If you're explaining products, pull back to \u201Clet's just put a time in the diary.\u201D",
+  "The email is your warmth — lead with \u201CI promised I'd follow up\u201D in every scenario.",
+  "Offer two specific times, never \u201Care you free sometime?\u201D",
+  "Talk less, ask more, and leave every call with a concrete next step.",
+  "Stay compliant and respectful: be ready to say truthfully how you got their details, and honour any do-not-contact request at once.",
+];
+
 export const coldCallCapture: ProspectField[] = [
-  {
-    id: "coldcall.anchor",
-    label: "Your opening anchor",
-    hint: "The shared affiliation you'll lead with so the call isn't truly cold — drawn from the channels work below. This flows into the script above.",
-    placeholder: "e.g. introduced by a mutual board member at the foundation…",
-  },
   {
     id: "coldcall.outcome",
     label: "Call outcome",
