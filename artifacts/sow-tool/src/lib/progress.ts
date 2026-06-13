@@ -1,5 +1,5 @@
 import {
-  profileFields,
+  sowRequiredFieldIds,
   wealthCategories,
   sourceOfFundsQuestions,
   sourceOfFundsDocuments,
@@ -16,10 +16,13 @@ export function calculateProgress(data: AssessmentData | undefined): { answered:
   let total = 0;
   let answered = 0;
 
-  // 1. Profile fields
-  profileFields.forEach((field) => {
+  // 1. Source of Wealth statement (required narrative spine only; the per-mode
+  // sections are conditional and intentionally left uncounted so 100% stays
+  // reachable when a mode does not apply).
+  sowRequiredFieldIds.forEach((fieldId) => {
     total++;
-    if (data[field.id]) answered++;
+    const v = data[fieldId];
+    if (typeof v === "string" ? v.trim().length > 0 : !!v) answered++;
   });
 
   // 2. Wealth categories

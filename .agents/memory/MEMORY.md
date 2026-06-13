@@ -1,2 +1,3 @@
 - [SoW Journey home & convert invariants](sow-journey.md) — unified "/" derives stages on the frontend; dedup keys on convertedAssessmentId existing in the assessments list; convert 409 dead-end gotcha.
 - [Frontend date fields are strings](api-client-react-dates.md) — generated `@workspace/api-client-react` summary types serialize date fields as `string`, not `Date`.
+- [SoW Section 1 statement replaces profile.*](sow-section1-statement.md) — manual profile.* fields retired but data retained (not deleted); only sow.overview/plausibility count; AI draft all-empty→200, no-fabrication.

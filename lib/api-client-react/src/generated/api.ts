@@ -25,8 +25,6 @@ import type {
   AssessmentSummary,
   AssessmentUpdate,
   Error,
-  FileNoteProfileExtractInput,
-  FileNoteProfileExtractResult,
   FileNoteRewriteInput,
   FileNoteRewriteResult,
   HealthStatus,
@@ -34,7 +32,9 @@ import type {
   Prospect,
   ProspectInput,
   ProspectSummary,
-  ProspectUpdate
+  ProspectUpdate,
+  SourceOfWealthDraftInput,
+  SourceOfWealthDraftResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -1150,38 +1150,38 @@ export const useRewriteFileNote = <TError = ErrorType<Error>,
       return useMutation(getRewriteFileNoteMutationOptions(options));
     }
 
-export const getExtractFileNoteProfileUrl = () => {
+export const getDraftSourceOfWealthUrl = () => {
 
 
 
 
-  return `/api/file-notes/extract-profile`
+  return `/api/source-of-wealth/draft`
 }
 
 /**
- * Stateless AI helper used by the client assessment file-note panel. Given a meeting note (and optional confirmed discussion topics) plus a list of client-profile fields, it returns concise extracted values for the fields the note clearly addresses. Fields the note does not address are omitted. Never fabricates values.
- * @summary Extract client-profile field values from a meeting file note
+ * Stateless AI helper for the client assessment. Synthesises a regulator-facing Source of Wealth statement from the banker's meeting note, optional confirmed discussion topics, and an optional pre-meeting briefing. Returns six narrative sections; any section with no basis in the inputs is returned empty for the banker to complete. Never fabricates facts; plausibility inferences are framed as such.
+ * @summary Draft a Source of Wealth statement from a meeting note and briefing
  */
-export const extractFileNoteProfile = async (fileNoteProfileExtractInput: FileNoteProfileExtractInput, options?: RequestInit): Promise<FileNoteProfileExtractResult> => {
+export const draftSourceOfWealth = async (sourceOfWealthDraftInput: SourceOfWealthDraftInput, options?: RequestInit): Promise<SourceOfWealthDraftResult> => {
 
-  return customFetch<FileNoteProfileExtractResult>(getExtractFileNoteProfileUrl(),
+  return customFetch<SourceOfWealthDraftResult>(getDraftSourceOfWealthUrl(),
   {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(
-      fileNoteProfileExtractInput,)
+      sourceOfWealthDraftInput,)
   }
 );}
 
 
 
 
-export const getExtractFileNoteProfileMutationOptions = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractFileNoteProfile>>, TError,{data: BodyType<FileNoteProfileExtractInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof extractFileNoteProfile>>, TError,{data: BodyType<FileNoteProfileExtractInput>}, TContext> => {
+export const getDraftSourceOfWealthMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof draftSourceOfWealth>>, TError,{data: BodyType<SourceOfWealthDraftInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof draftSourceOfWealth>>, TError,{data: BodyType<SourceOfWealthDraftInput>}, TContext> => {
 
-const mutationKey = ['extractFileNoteProfile'];
+const mutationKey = ['draftSourceOfWealth'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -1191,10 +1191,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof extractFileNoteProfile>>, {data: BodyType<FileNoteProfileExtractInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof draftSourceOfWealth>>, {data: BodyType<SourceOfWealthDraftInput>}> = (props) => {
           const {data} = props ?? {};
 
-          return  extractFileNoteProfile(data,requestOptions)
+          return  draftSourceOfWealth(data,requestOptions)
         }
 
 
@@ -1204,21 +1204,21 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type ExtractFileNoteProfileMutationResult = NonNullable<Awaited<ReturnType<typeof extractFileNoteProfile>>>
-    export type ExtractFileNoteProfileMutationBody = BodyType<FileNoteProfileExtractInput>
-    export type ExtractFileNoteProfileMutationError = ErrorType<Error>
+    export type DraftSourceOfWealthMutationResult = NonNullable<Awaited<ReturnType<typeof draftSourceOfWealth>>>
+    export type DraftSourceOfWealthMutationBody = BodyType<SourceOfWealthDraftInput>
+    export type DraftSourceOfWealthMutationError = ErrorType<Error>
 
     /**
- * @summary Extract client-profile field values from a meeting file note
+ * @summary Draft a Source of Wealth statement from a meeting note and briefing
  */
-export const useExtractFileNoteProfile = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractFileNoteProfile>>, TError,{data: BodyType<FileNoteProfileExtractInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useDraftSourceOfWealth = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof draftSourceOfWealth>>, TError,{data: BodyType<SourceOfWealthDraftInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof extractFileNoteProfile>>,
+        Awaited<ReturnType<typeof draftSourceOfWealth>>,
         TError,
-        {data: BodyType<FileNoteProfileExtractInput>},
+        {data: BodyType<SourceOfWealthDraftInput>},
         TContext
       > => {
-      return useMutation(getExtractFileNoteProfileMutationOptions(options));
+      return useMutation(getDraftSourceOfWealthMutationOptions(options));
     }
 

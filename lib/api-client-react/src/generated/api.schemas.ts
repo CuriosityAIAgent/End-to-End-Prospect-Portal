@@ -34,30 +34,37 @@ export interface FileNoteRewriteResult {
   note: string;
 }
 
-export interface FileNoteProfileFieldSpec {
-  key: string;
-  label: string;
+/**
+ * Optional pre-meeting briefing context (subset of the stored briefing)
+ */
+export interface SourceOfWealthBriefingInput {
+  summary?: string;
+  talkingPoints?: string[];
+  referralRoutes?: string[];
+  recommendedApproach?: string;
 }
 
-export interface FileNoteProfileExtractInput {
+export interface SourceOfWealthDraftInput {
   /** @minLength 1 */
-  note: string;
-  /** Optional confirmed discussion topics to give the extractor extra context */
+  clientName: string;
+  /** The banker's meeting note (may be empty when only a briefing is available) */
+  note?: string;
+  /** Optional confirmed discussion topics to ground the draft */
   coverage?: FileNoteCoverageItem[];
-  /**
-     * The client-profile fields available to populate (key + human description)
-     * @minItems 1
-     */
-  fields: FileNoteProfileFieldSpec[];
+  briefing?: SourceOfWealthBriefingInput;
 }
 
-export interface FileNoteProfileValue {
-  key: string;
-  value: string;
+export interface SourceOfWealthStatement {
+  overview: string;
+  employment: string;
+  compensation: string;
+  assetGrowth: string;
+  wealthEvents: string;
+  plausibility: string;
 }
 
-export interface FileNoteProfileExtractResult {
-  values: FileNoteProfileValue[];
+export interface SourceOfWealthDraftResult {
+  statement: SourceOfWealthStatement;
 }
 
 export type ReviewType = typeof ReviewType[keyof typeof ReviewType];

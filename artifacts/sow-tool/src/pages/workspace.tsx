@@ -11,6 +11,7 @@ import {
 } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { FileNotePanel } from "@/components/file-note-panel";
+import { SourceOfWealthSection } from "@/components/source-of-wealth-section";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,7 +19,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { calculateProgress } from "@/lib/progress";
 import { 
-  profileFields, 
   wealthCategories, 
   sourceOfFundsQuestions, 
   sourceOfFundsDocuments, 
@@ -302,25 +302,13 @@ export default function Workspace() {
           onChange={(v) => handleDataChange("fileNote", v)}
           contactName={assessment.clientName}
           defaultMeetingType="Client review"
-          profileExtraction={{
-            fields: profileFields.map((f) => ({ key: f.id, label: f.label })),
-            currentValues: Object.fromEntries(
-              profileFields.map((f) => [f.id, localData[f.id] ?? ""]),
-            ),
-            onApply: (values) =>
-              setLocalData((prev) => {
-                const next = { ...prev, ...values };
-                triggerSave(next, localMeta);
-                return next;
-              }),
-          }}
         />
 
         {/* Questionnaire Form */}
         <div className="flex flex-col gap-12">
           
-          {/* Section 1: Client Profile */}
-          <Section title="1. Client Profile" icon={<Briefcase className="w-5 h-5" />}>
+          {/* Section 1: Source of Wealth Statement */}
+          <Section title="1. Source of Wealth Statement" icon={<Briefcase className="w-5 h-5" />}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold">Client Reference / RM ID</label>
@@ -339,36 +327,18 @@ export default function Workspace() {
                 />
               </div>
             </div>
-            <div className="space-y-8">
-              {profileFields.map((field) => (
-                <div key={field.id} className="space-y-2">
-                  <label className="text-sm font-semibold text-foreground/90">{field.label}</label>
-                  {field.type === 'textarea' ? (
-                    <Textarea 
-                      value={localData[field.id] || ""}
-                      onChange={(e) => handleDataChange(field.id, e.target.value)}
-                      className="min-h-[100px] rounded-none border-border bg-card focus-visible:ring-primary"
-                      placeholder="Enter details..."
-                    />
-                  ) : field.type === 'select' ? (
-                    <Select value={localData[field.id] || ""} onValueChange={(v) => handleDataChange(field.id, v)}>
-                      <SelectTrigger className="rounded-none border-border bg-card">
-                        <SelectValue placeholder="Select..." />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-none">
-                        {field.options?.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input 
-                      value={localData[field.id] || ""}
-                      onChange={(e) => handleDataChange(field.id, e.target.value)}
-                      className="rounded-none border-border bg-card"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+            <SourceOfWealthSection
+              data={localData}
+              clientName={assessment.clientName}
+              onFieldChange={handleDataChange}
+              onApply={(values) =>
+                setLocalData((prev) => {
+                  const next = { ...prev, ...values };
+                  triggerSave(next, localMeta);
+                  return next;
+                })
+              }
+            />
           </Section>
 
           {/* Section 2: Wealth Categories */}

@@ -3,8 +3,6 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 import {
   RewriteFileNoteBody,
   RewriteFileNoteResponse,
-  ExtractFileNoteProfileBody,
-  ExtractFileNoteProfileResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -63,18 +61,6 @@ const ENHANCE_INSTRUCTIONS = [
   "Do not fabricate specific details, figures, or facts that are not present in the draft or the confirmed topics. Use the topic selections to confirm, organise, or add brief professional commentary only.",
   'Where a topic reads "Not discussed" or "None", do not mention it.',
   "Return only the final professional file note. Do not include any preamble, explanation, or markdown formatting outside the note itself.",
-].join("\n");
-
-// System prompt for the profile-extraction helper: pull structured KYC client
-// profile values out of a meeting note. Conservative by design — only fills
-// fields the note clearly addresses.
-const EXTRACT_PROFILE_INSTRUCTIONS = [
-  "You are assisting a private banker with KYC / Source of Wealth onboarding.",
-  "You will be given a meeting file note (and optionally the banker's confirmed discussion topics) plus a list of client-profile fields, each with a key and a description of what it captures.",
-  "Extract a value for ONLY the fields that the note clearly states or unambiguously implies. Do not guess, infer beyond the text, or fabricate.",
-  "If a field is not addressed in the note, omit it entirely — do not include it with an empty or speculative value.",
-  "Each extracted value must be a concise, factual string suitable for dropping straight into the form field.",
-  'Return ONLY a JSON object of the exact form {"values":[{"key":"<field key>","value":"<extracted value>"}]} using the exact field keys provided. No preamble, no explanation, no markdown.',
 ].join("\n");
 
 function coverageLines(
@@ -151,70 +137,6 @@ router.post("/file-notes/rewrite", async (req, res): Promise<void> => {
   } catch (err) {
     req.log.error({ err }, "File-note rewrite failed");
     res.status(502).json({ error: "The note could not be rewritten. Please try again." });
-  }
-});
-
-router.post("/file-notes/extract-profile", async (req, res): Promise<void> => {
-  const parsed = ExtractFileNoteProfileBody.safeParse(req.body);
-  if (!parsed.success) {
-    req.log.warn({ errors: parsed.error.message }, "Invalid file-note extract-profile body");
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-
-  const { note, coverage, fields } = parsed.data;
-  const allowedKeys = new Set(fields.map((f) => f.key));
-
-  const fieldLines = fields.map((f) => `- ${f.key}: ${f.label}`).join("\n");
-  const hasCoverage = Array.isArray(coverage) && coverage.length > 0;
-
-  const input = [
-    "FIELDS TO EXTRACT (key: what the field captures):",
-    fieldLines,
-    "",
-    "MEETING FILE NOTE:",
-    note,
-    ...(hasCoverage ? ["", "CONFIRMED DISCUSSION TOPICS:", coverageLines(coverage)] : []),
-  ].join("\n");
-
-  try {
-    const response = await openai.responses.create({
-      model: "gpt-5.4",
-      instructions: EXTRACT_PROFILE_INSTRUCTIONS,
-      input,
-    });
-
-    const text = response.output_text ?? "";
-
-    let values: { key: string; value: string }[];
-    try {
-      const jsonStart = text.indexOf("{");
-      const jsonEnd = text.lastIndexOf("}");
-      const slice = jsonStart >= 0 && jsonEnd >= 0 ? text.slice(jsonStart, jsonEnd + 1) : text;
-      const raw = JSON.parse(slice) as { values?: unknown };
-      const rawValues = Array.isArray(raw.values) ? raw.values : [];
-      values = rawValues
-        .filter(
-          (v): v is { key: string; value: string } =>
-            !!v &&
-            typeof v === "object" &&
-            typeof (v as { key?: unknown }).key === "string" &&
-            typeof (v as { value?: unknown }).value === "string",
-        )
-        .map((v) => ({ key: v.key, value: v.value.trim() }))
-        .filter((v) => allowedKeys.has(v.key) && v.value.length > 0);
-    } catch {
-      req.log.error("Failed to parse profile-extraction JSON from model");
-      res.status(502).json({ error: "The client profile could not be extracted. Please try again." });
-      return;
-    }
-
-    // An empty result is valid information ("the note didn't mention any profile
-    // details"), so return 200 with an empty array rather than erroring.
-    res.json(ExtractFileNoteProfileResponse.parse({ values }));
-  } catch (err) {
-    req.log.error({ err }, "File-note profile extraction failed");
-    res.status(502).json({ error: "The client profile could not be extracted. Please try again." });
   }
 });
 

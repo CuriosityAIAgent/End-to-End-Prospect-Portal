@@ -229,3 +229,20 @@ export interface FileNoteData {
   note?: string;
   coverage?: Record<string, CoverageEntry>;
 }
+
+/**
+ * The discussion dimensions the banker explicitly engaged with AND whose value
+ * is non-null. Shared by the file-note enhance pass and the Source of Wealth
+ * draft: sending an untouched default (e.g. Relationship Temperature's "Strong
+ * and growing") would feed the model an unconfirmed "fact" it could weave in as
+ * if confirmed.
+ */
+export function engagedCoverage(
+  coverage: Record<string, CoverageEntry> | undefined,
+): { label: string; value: string; detail?: string }[] {
+  if (!coverage) return [];
+  return coverageDimensions
+    .map((dim) => ({ dim, entry: coverage[dim.id] }))
+    .filter(({ entry }) => !!entry && isCovered(entry.value))
+    .map(({ dim, entry }) => ({ label: dim.label, value: entry!.value, detail: entry!.detail }));
+}

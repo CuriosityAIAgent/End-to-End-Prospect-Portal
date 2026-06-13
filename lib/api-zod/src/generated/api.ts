@@ -319,31 +319,37 @@ export const RewriteFileNoteResponse = zod.object({
 
 
 /**
- * Stateless AI helper used by the client assessment file-note panel. Given a meeting note (and optional confirmed discussion topics) plus a list of client-profile fields, it returns concise extracted values for the fields the note clearly addresses. Fields the note does not address are omitted. Never fabricates values.
- * @summary Extract client-profile field values from a meeting file note
+ * Stateless AI helper for the client assessment. Synthesises a regulator-facing Source of Wealth statement from the banker's meeting note, optional confirmed discussion topics, and an optional pre-meeting briefing. Returns six narrative sections; any section with no basis in the inputs is returned empty for the banker to complete. Never fabricates facts; plausibility inferences are framed as such.
+ * @summary Draft a Source of Wealth statement from a meeting note and briefing
  */
 
 
 
-
-export const ExtractFileNoteProfileBody = zod.object({
-  "note": zod.string().min(1),
+export const DraftSourceOfWealthBody = zod.object({
+  "clientName": zod.string().min(1),
+  "note": zod.string().optional().describe('The banker\'s meeting note (may be empty when only a briefing is available)'),
   "coverage": zod.array(zod.object({
   "label": zod.string(),
   "value": zod.string(),
   "detail": zod.string().optional()
-})).optional().describe('Optional confirmed discussion topics to give the extractor extra context'),
-  "fields": zod.array(zod.object({
-  "key": zod.string(),
-  "label": zod.string()
-})).min(1).describe('The client-profile fields available to populate (key + human description)')
+})).optional().describe('Optional confirmed discussion topics to ground the draft'),
+  "briefing": zod.object({
+  "summary": zod.string().optional(),
+  "talkingPoints": zod.array(zod.string()).optional(),
+  "referralRoutes": zod.array(zod.string()).optional(),
+  "recommendedApproach": zod.string().optional()
+}).optional().describe('Optional pre-meeting briefing context (subset of the stored briefing)')
 })
 
-export const ExtractFileNoteProfileResponse = zod.object({
-  "values": zod.array(zod.object({
-  "key": zod.string(),
-  "value": zod.string()
-}))
+export const DraftSourceOfWealthResponse = zod.object({
+  "statement": zod.object({
+  "overview": zod.string(),
+  "employment": zod.string(),
+  "compensation": zod.string(),
+  "assetGrowth": zod.string(),
+  "wealthEvents": zod.string(),
+  "plausibility": zod.string()
+})
 })
 
 

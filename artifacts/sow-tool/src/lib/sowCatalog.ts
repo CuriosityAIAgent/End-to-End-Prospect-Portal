@@ -66,6 +66,44 @@ export const profileFields: ProfileField[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Section: Source of Wealth statement (AI-drafted onboarding document)
+// ---------------------------------------------------------------------------
+// Replaces the manual client-profile fields above as the centrepiece of
+// Section 1. The statement is drafted from the meeting note + pre-meeting
+// briefing and stored on the assessment `data` blob keyed by the ids below.
+export interface SowStatementField {
+  id: string;
+  label: string;
+  hint: string;
+  /** Counted toward completion — the narrative spine that should always be present. */
+  required?: boolean;
+}
+
+// Display order of the drafted document. The four middle sections map to the
+// wealth-acquisition modes and stay empty where the inputs give no basis.
+export const sowStatementFields: SowStatementField[] = [
+  { id: "sow.overview", label: "Wealth origin — how it was built", hint: "The narrative of how the client built their overall wealth.", required: true },
+  { id: "sow.employment", label: "Employment income", hint: "Salary and earnings from employment over the client's career." },
+  { id: "sow.compensation", label: "Compensation — bonus, equity & carried interest", hint: "Variable pay: bonuses, stock / options, RSUs, carried interest." },
+  { id: "sow.assetGrowth", label: "Growth of assets", hint: "Wealth from investments, portfolio gains, property and business-value growth." },
+  { id: "sow.wealthEvents", label: "Wealth events", hint: "Discrete events: business sale, inheritance, gifts, settlements, windfalls." },
+  { id: "sow.plausibility", label: "Plausibility & corroboration", hint: "Whether the picture is coherent and what evidence would support it.", required: true },
+];
+
+/** Free-text the banker adds after the drafted document. Never AI-generated. */
+export const sowAdditionalField = {
+  id: "sow.additional",
+  label: "Additional information",
+  hint: "Anything not captured above — added manually by the relationship manager.",
+} as const;
+
+/** The drafted-section ids (everything the AI fills), in order. */
+export const sowDraftedFieldIds = sowStatementFields.map((f) => f.id);
+
+/** Sections counted toward completion (the always-expected narrative spine). */
+export const sowRequiredFieldIds = sowStatementFields.filter((f) => f.required).map((f) => f.id);
+
+// ---------------------------------------------------------------------------
 // Section: Wealth categories
 // ---------------------------------------------------------------------------
 export const wealthCategories: WealthCategory[] = [
