@@ -480,7 +480,7 @@ export default function Workspace() {
             </p>
             <div className="grid gap-4">
               {plausibilityChecks.map((c) => (
-                <label key={c.id} className="flex items-start gap-4 p-4 border border-border bg-card hover:bg-secondary/10 cursor-pointer transition-colors">
+                <label key={c.id} className="flex items-start gap-4 p-4 border border-border bg-card hover:bg-secondary/10 hover:border-primary/40 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md">
                   <Checkbox 
                     checked={!!localData[c.id]}
                     onCheckedChange={(checked) => handleDataChange(c.id, checked)}
@@ -499,7 +499,7 @@ export default function Workspace() {
             </p>
             <div className="grid gap-4">
               {redFlags.map((f) => (
-                <label key={f.id} className="flex items-start gap-4 p-4 border border-border bg-card hover:bg-amber-500/5 cursor-pointer transition-colors">
+                <label key={f.id} className="flex items-start gap-4 p-4 border border-border bg-card hover:bg-amber-500/5 hover:border-amber-500/40 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md">
                   <Checkbox 
                     checked={!!localData[f.id]}
                     onCheckedChange={(checked) => handleDataChange(f.id, checked)}

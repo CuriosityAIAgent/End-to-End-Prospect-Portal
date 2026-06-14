@@ -177,7 +177,7 @@ export default function Prospecting() {
                   <div
                     key={p.id}
                     onClick={() => setLocation(`/prospect/${p.id}`)}
-                    className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-secondary/20 cursor-pointer transition-colors animate-in fade-in slide-in-from-bottom-2"
+                    className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-secondary/20 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-lg animate-in fade-in slide-in-from-bottom-2"
                     style={{ animationDelay: `${i * 50}ms`, animationFillMode: "backwards" }}
                   >
                     <div className="flex-1 min-w-0">
