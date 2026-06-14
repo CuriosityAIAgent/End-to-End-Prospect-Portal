@@ -171,7 +171,7 @@ export default function Journey() {
           <div className="flex flex-wrap gap-3">
             <Dialog open={isAssessmentOpen} onOpenChange={setIsAssessmentOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="lg" className="rounded-md border-border">
+                <Button variant="outline" size="lg" className="rounded-md border-border transition-all hover:bg-secondary hover:border-primary/50 hover:text-primary">
                   <UserPlus className="w-4 h-4 mr-2" />
                   New Assessment
                 </Button>
@@ -236,7 +236,7 @@ export default function Journey() {
 
             <Dialog open={isProspectOpen} onOpenChange={setIsProspectOpen}>
               <DialogTrigger asChild>
-                <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md shadow-md">
+                <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5 transition-all rounded-md shadow-md">
                   <Plus className="w-4 h-4 mr-2" />
                   Add Prospect
                 </Button>
@@ -418,8 +418,8 @@ function JourneyRow({ item, index, onOpen }: { item: JourneyItem; index: number;
   return (
     <div
       onClick={onOpen}
-      className={`group flex items-center gap-6 p-4 border transition-all hover:shadow-md cursor-pointer animate-in fade-in slide-in-from-bottom-2
-        ${item.dormant ? "border-border bg-card/60 opacity-75 hover:opacity-100" : "border-border bg-card hover:border-primary/50"}`}
+      className={`group flex items-center gap-6 p-4 border transition-all hover:shadow-lg hover:-translate-y-0.5 cursor-pointer animate-in fade-in slide-in-from-bottom-2
+        ${item.dormant ? "border-border bg-card/60 opacity-75 hover:opacity-100 hover:border-primary/40" : "border-border bg-card hover:border-primary/50 hover:bg-secondary/20"}`}
       style={{ animationDelay: `${index * 40}ms`, animationFillMode: "backwards" }}
     >
       {/* Mini-journey dots */}
