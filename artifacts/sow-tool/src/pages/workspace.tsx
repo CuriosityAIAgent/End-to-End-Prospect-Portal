@@ -356,7 +356,7 @@ export default function Workspace() {
                 return (
                   <div key={cat.id} className={`border transition-all duration-300 ${isApplicable ? 'border-primary shadow-sm bg-card' : 'border-border bg-background'}`}>
                     <div 
-                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-secondary/20"
+                      className="p-4 flex items-center justify-between cursor-pointer transition-colors hover:bg-secondary/20"
                       onClick={() => {
                         const next = isApplicable 
                           ? applicableCats.filter(id => id !== cat.id)
