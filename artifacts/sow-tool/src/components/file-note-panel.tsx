@@ -200,10 +200,10 @@ export function FileNotePanel({
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Meeting Type</label>
             <Select value={effective.meetingType} onValueChange={(v) => patch({ meetingType: v })}>
-              <SelectTrigger className="h-9 rounded-none border-border bg-background text-sm">
+              <SelectTrigger className="h-9 rounded-md border-border bg-background text-sm">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="rounded-none">
+              <SelectContent className="rounded-md">
                 {meetingTypes.map((m) => (
                   <SelectItem key={m} value={m}>{m}</SelectItem>
                 ))}
@@ -216,7 +216,7 @@ export function FileNotePanel({
               type="date"
               value={effective.date}
               onChange={(e) => patch({ date: e.target.value })}
-              className="h-9 rounded-none border-border bg-background text-sm"
+              className="h-9 rounded-md border-border bg-background text-sm"
             />
           </div>
         </div>
@@ -238,7 +238,7 @@ export function FileNotePanel({
             value={effective.note}
             onChange={(e) => patch({ note: e.target.value })}
             placeholder="e.g. Met David at his office. Recently sold his logistics business, ~£40m proceeds. Worried about IHT, two kids at university. Mentioned his current bank has been slow on a property facility..."
-            className="min-h-[200px] rounded-none border-border bg-background focus-visible:ring-primary print:hidden"
+            className="min-h-[200px] rounded-md border-border bg-background focus-visible:ring-primary print:hidden"
           />
           {/* Print-only static rendering of the note */}
           <div className="hidden print:block whitespace-pre-wrap text-sm leading-relaxed border border-border p-4">
@@ -252,7 +252,7 @@ export function FileNotePanel({
             <Button
               onClick={runRewrite}
               disabled={!hasNote || rewrite.isPending}
-              className="rounded-none bg-primary text-primary-foreground"
+              className="rounded-md bg-primary text-primary-foreground"
             >
               {rewrite.isPending && previewMode === "rewrite" ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Rewriting...</>
@@ -264,7 +264,7 @@ export function FileNotePanel({
               variant="outline"
               onClick={copyNote}
               disabled={!hasNote}
-              className="rounded-none border-border hover:bg-secondary"
+              className="rounded-md border-border hover:bg-secondary"
             >
               {copied ? (
                 <><ClipboardCheck className="w-4 h-4 mr-2 text-emerald-600" /> Copied</>
@@ -306,18 +306,18 @@ export function FileNotePanel({
                       {preview}
                     </div>
                     <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border">
-                      <Button onClick={acceptPreview} className="rounded-none bg-emerald-600 text-white hover:bg-emerald-700">
+                      <Button onClick={acceptPreview} className="rounded-md bg-emerald-600 text-white hover:bg-emerald-700">
                         <Check className="w-4 h-4 mr-2" /> Accept &amp; replace note
                       </Button>
                       <Button
                         variant="outline"
                         onClick={previewMode === "enhance" ? runEnhance : runRewrite}
                         disabled={rewrite.isPending}
-                        className="rounded-none border-border hover:bg-secondary"
+                        className="rounded-md border-border hover:bg-secondary"
                       >
                         <RefreshCw className="w-4 h-4 mr-2" /> Retry
                       </Button>
-                      <Button variant="ghost" onClick={discardPreview} className="rounded-none text-muted-foreground">
+                      <Button variant="ghost" onClick={discardPreview} className="rounded-md text-muted-foreground">
                         Dismiss
                       </Button>
                     </div>
@@ -371,10 +371,10 @@ export function FileNotePanel({
                         setCoverage(dim.id, { value: v, detail: isCovered(v) ? entry?.detail ?? "" : "" })
                       }
                     >
-                      <SelectTrigger className="h-9 rounded-none border-border bg-card text-sm">
+                      <SelectTrigger className="h-9 rounded-md border-border bg-card text-sm">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="rounded-none">
+                      <SelectContent className="rounded-md">
                         {dim.options.map((o) => (
                           <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                         ))}
@@ -385,7 +385,7 @@ export function FileNotePanel({
                         value={entry?.detail ?? ""}
                         onChange={(e) => setCoverage(dim.id, { value: selected, detail: e.target.value })}
                         placeholder="Add further detail…"
-                        className="min-h-[64px] rounded-none border-border bg-card text-sm focus-visible:ring-primary"
+                        className="min-h-[64px] rounded-md border-border bg-card text-sm focus-visible:ring-primary"
                       />
                     )}
                   </div>
@@ -415,7 +415,7 @@ export function FileNotePanel({
               onClick={runEnhance}
               disabled={!hasNote || !hasCoverage || rewrite.isPending}
               variant="outline"
-              className="rounded-none border-primary/40 text-primary hover:bg-primary/5"
+              className="rounded-md border-primary/40 text-primary hover:bg-primary/5"
             >
               {rewrite.isPending && previewMode === "enhance" ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enhancing...</>

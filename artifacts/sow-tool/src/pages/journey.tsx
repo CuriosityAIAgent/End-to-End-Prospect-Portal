@@ -171,12 +171,12 @@ export default function Journey() {
           <div className="flex flex-wrap gap-3">
             <Dialog open={isAssessmentOpen} onOpenChange={setIsAssessmentOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="lg" className="rounded-none border-border">
+                <Button variant="outline" size="lg" className="rounded-md border-border">
                   <UserPlus className="w-4 h-4 mr-2" />
                   New Assessment
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px] rounded-none border-border bg-card">
+              <DialogContent className="sm:max-w-[425px] rounded-md border-border bg-card">
                 <DialogHeader>
                   <DialogTitle className="font-serif text-xl">Create Assessment</DialogTitle>
                   <DialogDescription>
@@ -190,17 +190,17 @@ export default function Journey() {
                       id="a-name"
                       value={aName}
                       onChange={(e) => setAName(e.target.value)}
-                      className="rounded-none bg-background border-border"
+                      className="rounded-md bg-background border-border"
                       placeholder="e.g. John Doe or Acme Corp"
                     />
                   </div>
                   <div className="grid gap-2">
                     <label className="text-sm font-medium">Review Type</label>
                     <Select value={aReviewType} onValueChange={setAReviewType}>
-                      <SelectTrigger className="rounded-none bg-background border-border">
+                      <SelectTrigger className="rounded-md bg-background border-border">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="rounded-none">
+                      <SelectContent className="rounded-md">
                         {reviewTypeOptions.map((opt) => (
                           <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                         ))}
@@ -210,10 +210,10 @@ export default function Journey() {
                   <div className="grid gap-2">
                     <label className="text-sm font-medium">Risk Rating</label>
                     <Select value={aRiskRating} onValueChange={setARiskRating}>
-                      <SelectTrigger className="rounded-none bg-background border-border">
+                      <SelectTrigger className="rounded-md bg-background border-border">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="rounded-none">
+                      <SelectContent className="rounded-md">
                         {riskRatingOptions.map((opt) => (
                           <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                         ))}
@@ -222,11 +222,11 @@ export default function Journey() {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAssessmentOpen(false)} className="rounded-none">Cancel</Button>
+                  <Button variant="outline" onClick={() => setIsAssessmentOpen(false)} className="rounded-md">Cancel</Button>
                   <Button
                     onClick={handleCreateAssessment}
                     disabled={!aName.trim() || createAssessment.isPending}
-                    className="rounded-none bg-primary text-primary-foreground"
+                    className="rounded-md bg-primary text-primary-foreground"
                   >
                     {createAssessment.isPending ? "Creating..." : "Create"}
                   </Button>
@@ -236,12 +236,12 @@ export default function Journey() {
 
             <Dialog open={isProspectOpen} onOpenChange={setIsProspectOpen}>
               <DialogTrigger asChild>
-                <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-none shadow-md">
+                <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md shadow-md">
                   <Plus className="w-4 h-4 mr-2" />
                   Add Prospect
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px] rounded-none border-border bg-card">
+              <DialogContent className="sm:max-w-[425px] rounded-md border-border bg-card">
                 <DialogHeader>
                   <DialogTitle className="font-serif text-xl">Add Prospect</DialogTitle>
                   <DialogDescription>
@@ -255,7 +255,7 @@ export default function Journey() {
                       id="p-name"
                       value={pName}
                       onChange={(e) => setPName(e.target.value)}
-                      className="rounded-none bg-background border-border"
+                      className="rounded-md bg-background border-border"
                       placeholder="e.g. Marcus Rourke"
                     />
                   </div>
@@ -267,7 +267,7 @@ export default function Journey() {
                       id="p-segment"
                       value={pSegment}
                       onChange={(e) => setPSegment(e.target.value)}
-                      className="rounded-none bg-background border-border"
+                      className="rounded-md bg-background border-border"
                       placeholder="e.g. PE Partner, Founder, Family Office"
                     />
                   </div>
@@ -279,17 +279,17 @@ export default function Journey() {
                       id="p-rm"
                       value={pRm}
                       onChange={(e) => setPRm(e.target.value)}
-                      className="rounded-none bg-background border-border"
+                      className="rounded-md bg-background border-border"
                       placeholder="e.g. A. Banker"
                     />
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsProspectOpen(false)} className="rounded-none">Cancel</Button>
+                  <Button variant="outline" onClick={() => setIsProspectOpen(false)} className="rounded-md">Cancel</Button>
                   <Button
                     onClick={handleCreateProspect}
                     disabled={!pName.trim() || createProspect.isPending}
-                    className="rounded-none bg-primary text-primary-foreground"
+                    className="rounded-md bg-primary text-primary-foreground"
                   >
                     {createProspect.isPending ? "Adding..." : "Add Prospect"}
                   </Button>
@@ -378,7 +378,7 @@ export default function Journey() {
               <p className="text-muted-foreground mb-4 text-sm max-w-sm">
                 Add a prospect to begin the journey, or create a Source of Wealth assessment directly.
               </p>
-              <Button onClick={() => setIsProspectOpen(true)} className="rounded-none bg-primary text-primary-foreground">
+              <Button onClick={() => setIsProspectOpen(true)} className="rounded-md bg-primary text-primary-foreground">
                 Add First Prospect
               </Button>
             </div>
@@ -404,7 +404,7 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1.5 text-sm rounded-none border transition-colors
+      className={`px-3 py-1.5 text-sm rounded-md border transition-colors
         ${active
           ? "bg-secondary border-border text-foreground"
           : "border-transparent text-muted-foreground hover:bg-secondary/60"}`}

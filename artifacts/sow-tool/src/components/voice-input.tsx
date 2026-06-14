@@ -88,7 +88,7 @@ export function VoiceInput({
           size="sm"
           variant="outline"
           onClick={handleStop}
-          className="rounded-none border-destructive/50 text-destructive hover:bg-destructive/5 h-8"
+          className="rounded-md border-destructive/50 text-destructive hover:bg-destructive/5 h-8"
         >
           <Square className="w-3.5 h-3.5 mr-2 fill-current" /> Stop &amp; transcribe
         </Button>
@@ -99,7 +99,7 @@ export function VoiceInput({
           variant="outline"
           onClick={handleStart}
           disabled={disabled || isTranscribing}
-          className="rounded-none border-border hover:bg-secondary h-8"
+          className="rounded-md border-border hover:bg-secondary h-8"
         >
           {isTranscribing ? (
             <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> Transcribing…</>

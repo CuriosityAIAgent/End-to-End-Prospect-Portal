@@ -134,7 +134,7 @@ export function SourceOfWealthSection({
           <Button
             onClick={runGenerate}
             disabled={!canGenerate || draft.isPending}
-            className="rounded-none bg-primary text-primary-foreground hover:bg-primary/90"
+            className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {draft.isPending ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Drafting…</>
@@ -198,7 +198,7 @@ export function SourceOfWealthSection({
               {!previewIsEmpty && (
                 <Button
                   onClick={acceptPreview}
-                  className="rounded-none bg-emerald-600 text-white hover:bg-emerald-700"
+                  className="rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
                 >
                   <Check className="w-4 h-4 mr-2" /> Accept &amp; fill statement
                 </Button>
@@ -207,11 +207,11 @@ export function SourceOfWealthSection({
                 onClick={runGenerate}
                 disabled={draft.isPending}
                 variant="outline"
-                className="rounded-none border-border"
+                className="rounded-md border-border"
               >
                 <RefreshCw className="w-4 h-4 mr-2" /> Retry
               </Button>
-              <Button onClick={dismissPreview} variant="ghost" className="rounded-none text-muted-foreground">
+              <Button onClick={dismissPreview} variant="ghost" className="rounded-md text-muted-foreground">
                 <X className="w-4 h-4 mr-2" /> Dismiss
               </Button>
             </div>
@@ -231,7 +231,7 @@ export function SourceOfWealthSection({
                 value={val}
                 onChange={(e) => onFieldChange(f.id, e.target.value)}
                 placeholder="No basis recorded yet — draft above or write manually."
-                className="min-h-[110px] rounded-none border-border bg-card focus-visible:ring-primary print:hidden"
+                className="min-h-[110px] rounded-md border-border bg-card focus-visible:ring-primary print:hidden"
               />
               <div className="hidden print:block text-sm whitespace-pre-wrap leading-relaxed">
                 {val.trim().length > 0 ? val : "—"}
@@ -249,7 +249,7 @@ export function SourceOfWealthSection({
           value={(data[sowAdditionalField.id] as string | undefined) ?? ""}
           onChange={(e) => onFieldChange(sowAdditionalField.id, e.target.value)}
           placeholder="Add any further context the relationship manager wishes to record…"
-          className="min-h-[100px] rounded-none border-border bg-card focus-visible:ring-primary print:hidden"
+          className="min-h-[100px] rounded-md border-border bg-card focus-visible:ring-primary print:hidden"
         />
         <div className="hidden print:block text-sm whitespace-pre-wrap leading-relaxed">
           {((data[sowAdditionalField.id] as string | undefined) ?? "").trim() || "—"}

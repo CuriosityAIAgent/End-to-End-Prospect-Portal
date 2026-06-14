@@ -74,12 +74,12 @@ export default function Prospecting() {
           </div>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
-              <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-none shadow-md">
+              <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md shadow-md">
                 <Plus className="w-4 h-4 mr-2" />
                 New Prospect
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] rounded-none border-border bg-card">
+            <DialogContent className="sm:max-w-[425px] rounded-md border-border bg-card">
               <DialogHeader>
                 <DialogTitle className="font-serif text-xl">Add Prospect</DialogTitle>
                 <DialogDescription>
@@ -93,7 +93,7 @@ export default function Prospecting() {
                     id="p-name"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="rounded-none bg-background border-border"
+                    className="rounded-md bg-background border-border"
                     placeholder="e.g. Marcus Rourke"
                   />
                 </div>
@@ -103,7 +103,7 @@ export default function Prospecting() {
                     id="p-segment"
                     value={newSegment}
                     onChange={(e) => setNewSegment(e.target.value)}
-                    className="rounded-none bg-background border-border"
+                    className="rounded-md bg-background border-border"
                     placeholder="e.g. PE Partner, Founder, Family Office"
                   />
                 </div>
@@ -113,17 +113,17 @@ export default function Prospecting() {
                     id="p-rm"
                     value={newRm}
                     onChange={(e) => setNewRm(e.target.value)}
-                    className="rounded-none bg-background border-border"
+                    className="rounded-md bg-background border-border"
                     placeholder="e.g. A. Banker"
                   />
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateOpen(false)} className="rounded-none">Cancel</Button>
+                <Button variant="outline" onClick={() => setIsCreateOpen(false)} className="rounded-md">Cancel</Button>
                 <Button
                   onClick={handleCreate}
                   disabled={!newName.trim() || createProspect.isPending}
-                  className="rounded-none bg-primary text-primary-foreground"
+                  className="rounded-md bg-primary text-primary-foreground"
                 >
                   {createProspect.isPending ? "Adding..." : "Add Prospect"}
                 </Button>
@@ -167,7 +167,7 @@ export default function Prospecting() {
                 <p className="text-muted-foreground mb-4 text-sm max-w-sm">
                   Add a prospect to start building a systematic prospecting brief.
                 </p>
-                <Button onClick={() => setIsCreateOpen(true)} className="rounded-none bg-primary text-primary-foreground">
+                <Button onClick={() => setIsCreateOpen(true)} className="rounded-md bg-primary text-primary-foreground">
                   Add First Prospect
                 </Button>
               </div>

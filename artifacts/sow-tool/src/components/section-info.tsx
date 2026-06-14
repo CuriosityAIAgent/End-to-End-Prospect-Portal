@@ -31,7 +31,7 @@ export function SectionInfo({ id, className = "" }: { id: string; className?: st
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[340px] rounded-none border-border bg-card p-0"
+        className="w-[340px] rounded-md border-border bg-card p-0"
       >
         <div className="border-b border-border px-4 py-3 flex items-center justify-between gap-2">
           <h4 className="font-serif text-base text-foreground">{help.title}</h4>

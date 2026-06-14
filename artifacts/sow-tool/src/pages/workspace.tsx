@@ -206,16 +206,16 @@ export default function Workspace() {
                 )}
               </div>
               <div className="h-4 w-px bg-border mx-1"></div>
-              <Button variant="outline" size="sm" onClick={handlePrint} className="rounded-none border-border hover:bg-secondary">
+              <Button variant="outline" size="sm" onClick={handlePrint} className="rounded-md border-border hover:bg-secondary">
                 <Printer className="w-4 h-4 mr-2" /> Export / Print
               </Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="rounded-none border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
+                  <Button variant="outline" size="sm" className="rounded-md border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent className="rounded-none bg-card border-border">
+                <AlertDialogContent className="rounded-md bg-card border-border">
                   <AlertDialogHeader>
                     <AlertDialogTitle className="font-serif">Delete Assessment?</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -223,8 +223,8 @@ export default function Workspace() {
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-none">Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="rounded-none bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    <AlertDialogCancel className="rounded-md">Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90">
                       Delete
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -251,10 +251,10 @@ export default function Workspace() {
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</label>
                     <Select value={localMeta.status} onValueChange={(v) => handleMetaChange('status', v)}>
-                      <SelectTrigger className="h-8 rounded-none border-border bg-background text-sm">
+                      <SelectTrigger className="h-8 rounded-md border-border bg-background text-sm">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="rounded-none">
+                      <SelectContent className="rounded-md">
                         {statusOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -262,10 +262,10 @@ export default function Workspace() {
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Risk</label>
                     <Select value={localMeta.riskRating} onValueChange={(v) => handleMetaChange('riskRating', v)}>
-                      <SelectTrigger className="h-8 rounded-none border-border bg-background text-sm">
+                      <SelectTrigger className="h-8 rounded-md border-border bg-background text-sm">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="rounded-none">
+                      <SelectContent className="rounded-md">
                         {riskRatingOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -277,7 +277,7 @@ export default function Workspace() {
                     <span>Completion</span>
                     <span>{progress.percentage}%</span>
                   </div>
-                  <Progress value={progress.percentage} className="h-1 rounded-none bg-secondary [&>div]:bg-primary" />
+                  <Progress value={progress.percentage} className="h-1 rounded-md bg-secondary [&>div]:bg-primary" />
                 </div>
               </div>
             </div>
@@ -316,7 +316,7 @@ export default function Workspace() {
                 <Input 
                   value={localMeta.clientReference} 
                   onChange={(e) => handleMetaChange('clientReference', e.target.value)}
-                  className="rounded-none border-border bg-card"
+                  className="rounded-md border-border bg-card"
                 />
               </div>
               <div className="space-y-2">
@@ -324,7 +324,7 @@ export default function Workspace() {
                 <Input 
                   value={localMeta.relationshipManager} 
                   onChange={(e) => handleMetaChange('relationshipManager', e.target.value)}
-                  className="rounded-none border-border bg-card"
+                  className="rounded-md border-border bg-card"
                 />
               </div>
             </div>
@@ -396,7 +396,7 @@ export default function Workspace() {
                               <Textarea 
                                 value={localData[q.id] || ""}
                                 onChange={(e) => handleDataChange(q.id, e.target.value)}
-                                className="min-h-[80px] rounded-none border-border bg-background focus-visible:ring-primary"
+                                className="min-h-[80px] rounded-md border-border bg-background focus-visible:ring-primary"
                               />
                             </div>
                           ))}
@@ -412,10 +412,10 @@ export default function Workspace() {
                                   value={localData[d.id] || ""} 
                                   onValueChange={(v) => handleDataChange(d.id, v)}
                                 >
-                                  <SelectTrigger className="w-[200px] h-8 rounded-none border-border">
+                                  <SelectTrigger className="w-[200px] h-8 rounded-md border-border">
                                     <SelectValue placeholder="Select state..." />
                                   </SelectTrigger>
-                                  <SelectContent className="rounded-none">
+                                  <SelectContent className="rounded-md">
                                     {DOC_STATES.map(state => (
                                       <SelectItem key={state.value} value={state.value}>{state.label}</SelectItem>
                                     ))}
@@ -442,7 +442,7 @@ export default function Workspace() {
                   <Textarea 
                     value={localData[q.id] || ""}
                     onChange={(e) => handleDataChange(q.id, e.target.value)}
-                    className="min-h-[80px] rounded-none border-border bg-card"
+                    className="min-h-[80px] rounded-md border-border bg-card"
                   />
                 </div>
               ))}
@@ -457,10 +457,10 @@ export default function Workspace() {
                         value={localData[d.id] || ""} 
                         onValueChange={(v) => handleDataChange(d.id, v)}
                       >
-                        <SelectTrigger className="w-[200px] h-8 rounded-none border-border bg-background">
+                        <SelectTrigger className="w-[200px] h-8 rounded-md border-border bg-background">
                           <SelectValue placeholder="Select state..." />
                         </SelectTrigger>
-                        <SelectContent className="rounded-none">
+                        <SelectContent className="rounded-md">
                           {DOC_STATES.map(state => (
                             <SelectItem key={state.value} value={state.value}>{state.label}</SelectItem>
                           ))}
@@ -514,7 +514,7 @@ export default function Workspace() {
                 <Textarea 
                   value={localData["flags.mitigation"] || ""}
                   onChange={(e) => handleDataChange("flags.mitigation", e.target.value)}
-                  className="min-h-[100px] rounded-none border-border bg-card"
+                  className="min-h-[100px] rounded-md border-border bg-card"
                   placeholder="Provide context..."
                 />
               </div>
@@ -531,14 +531,14 @@ export default function Workspace() {
                     <Textarea 
                       value={localData[field.id] || ""}
                       onChange={(e) => handleDataChange(field.id, e.target.value)}
-                      className="min-h-[100px] rounded-none border-border bg-card"
+                      className="min-h-[100px] rounded-md border-border bg-card"
                     />
                   ) : field.type === 'select' ? (
                     <Select value={localData[field.id] || ""} onValueChange={(v) => handleDataChange(field.id, v)}>
-                      <SelectTrigger className="rounded-none border-border bg-card">
+                      <SelectTrigger className="rounded-md border-border bg-card">
                         <SelectValue placeholder="Select conclusion..." />
                       </SelectTrigger>
-                      <SelectContent className="rounded-none">
+                      <SelectContent className="rounded-md">
                         {field.options?.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -546,7 +546,7 @@ export default function Workspace() {
                     <Input 
                       value={localData[field.id] || ""}
                       onChange={(e) => handleDataChange(field.id, e.target.value)}
-                      className="rounded-none border-border bg-card"
+                      className="rounded-md border-border bg-card"
                     />
                   )}
                 </div>
@@ -555,7 +555,7 @@ export default function Workspace() {
               <div className="pt-6 border-t border-border flex justify-end print:hidden">
                 <Button 
                   onClick={() => handleMetaChange("status", "completed")}
-                  className="rounded-none bg-primary text-primary-foreground"
+                  className="rounded-md bg-primary text-primary-foreground"
                   disabled={localMeta.status === "completed"}
                 >
                   <CheckCircle2 className="w-4 h-4 mr-2" />

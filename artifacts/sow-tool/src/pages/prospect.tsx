@@ -219,16 +219,16 @@ export default function Prospect() {
                 )}
               </div>
               <div className="h-4 w-px bg-border mx-1" />
-              <Button variant="outline" size="sm" onClick={() => window.print()} className="rounded-none border-border hover:bg-secondary">
+              <Button variant="outline" size="sm" onClick={() => window.print()} className="rounded-md border-border hover:bg-secondary">
                 <Printer className="w-4 h-4 mr-2" /> Print Brief
               </Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="rounded-none border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
+                  <Button variant="outline" size="sm" className="rounded-md border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent className="rounded-none bg-card border-border">
+                <AlertDialogContent className="rounded-md bg-card border-border">
                   <AlertDialogHeader>
                     <AlertDialogTitle className="font-serif">Delete Prospect?</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -236,8 +236,8 @@ export default function Prospect() {
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-none">Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="rounded-none bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    <AlertDialogCancel className="rounded-md">Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90">
                       Delete
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -265,17 +265,17 @@ export default function Prospect() {
                     value={localMeta.segment}
                     onChange={(e) => handleMetaChange("segment", e.target.value)}
                     placeholder="e.g. PE Partner"
-                    className="h-8 rounded-none border-border bg-background text-sm"
+                    className="h-8 rounded-md border-border bg-background text-sm"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Stage</label>
                     <Select value={localMeta.status} onValueChange={(v) => handleMetaChange("status", v)}>
-                      <SelectTrigger className="h-8 rounded-none border-border bg-background text-sm">
+                      <SelectTrigger className="h-8 rounded-md border-border bg-background text-sm">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="rounded-none">
+                      <SelectContent className="rounded-md">
                         {prospectStatuses.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -286,7 +286,7 @@ export default function Prospect() {
                       value={localMeta.relationshipManager}
                       onChange={(e) => handleMetaChange("relationshipManager", e.target.value)}
                       placeholder="A. Banker"
-                      className="h-8 rounded-none border-border bg-background text-sm"
+                      className="h-8 rounded-md border-border bg-background text-sm"
                     />
                   </div>
                 </div>
@@ -345,7 +345,7 @@ export default function Prospect() {
                       value={localData[field.id] || ""}
                       onChange={(e) => handleDataChange(field.id, e.target.value)}
                       placeholder={field.placeholder}
-                      className="min-h-[90px] rounded-none border-border bg-card focus-visible:ring-primary"
+                      className="min-h-[90px] rounded-md border-border bg-card focus-visible:ring-primary"
                     />
                   </div>
                 ))}
@@ -368,7 +368,7 @@ export default function Prospect() {
                 </div>
                 <Button
                   onClick={() => setLocation(`/assessment/${prospect.convertedAssessmentId}`)}
-                  className="rounded-none bg-primary text-primary-foreground shrink-0"
+                  className="rounded-md bg-primary text-primary-foreground shrink-0"
                 >
                   Open Assessment
                 </Button>
@@ -383,7 +383,7 @@ export default function Prospect() {
                 </div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button className="rounded-none bg-primary text-primary-foreground shrink-0" disabled={convertProspect.isPending}>
+                    <Button className="rounded-md bg-primary text-primary-foreground shrink-0" disabled={convertProspect.isPending}>
                       {convertProspect.isPending ? (
                         <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Converting...</>
                       ) : (
@@ -391,7 +391,7 @@ export default function Prospect() {
                       )}
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent className="rounded-none bg-card border-border">
+                  <AlertDialogContent className="rounded-md bg-card border-border">
                     <AlertDialogHeader>
                       <AlertDialogTitle className="font-serif">Convert {prospect.name} to a client?</AlertDialogTitle>
                       <AlertDialogDescription>
@@ -399,8 +399,8 @@ export default function Prospect() {
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel className="rounded-none">Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleConvert} className="rounded-none bg-primary text-primary-foreground hover:bg-primary/90">
+                      <AlertDialogCancel className="rounded-md">Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleConvert} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90">
                         Convert
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -509,7 +509,7 @@ function ColdCallPanel({
                 value={data[field.id] || ""}
                 onChange={(e) => onChange(field.id, e.target.value)}
                 placeholder={field.placeholder}
-                className="min-h-[70px] rounded-none border-border bg-card focus-visible:ring-primary"
+                className="min-h-[70px] rounded-md border-border bg-card focus-visible:ring-primary"
               />
             </div>
           ))}
@@ -545,7 +545,7 @@ function BriefingPanel({
             </p>
           </div>
         </div>
-        <Button onClick={onGenerate} disabled={isGenerating} className="rounded-none bg-primary text-primary-foreground shrink-0 print:hidden">
+        <Button onClick={onGenerate} disabled={isGenerating} className="rounded-md bg-primary text-primary-foreground shrink-0 print:hidden">
           {isGenerating ? (
             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Researching...</>
           ) : (

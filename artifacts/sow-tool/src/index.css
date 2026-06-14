@@ -71,7 +71,7 @@
   --input: 217 30% 18%;
   --ring: 42 40% 60%;
 
-  --radius: 0.25rem; /* Sharp, precise corners */
+  --radius: 0.5rem; /* Softly rounded corners */
 }
 
 @layer base {
