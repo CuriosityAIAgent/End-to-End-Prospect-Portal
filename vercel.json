@@ -1,9 +1,16 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm --filter @workspace/sow-tool build",
+  "installCommand": "pnpm install --no-frozen-lockfile",
+  "buildCommand": "pnpm --filter @workspace/api-server run build:vercel && pnpm --filter @workspace/sow-tool build",
   "outputDirectory": "artifacts/sow-tool/dist/public",
   "framework": null,
+  "functions": {
+    "api/index.mjs": {
+      "includeFiles": "artifacts/api-server/dist-vercel/**"
+    }
+  },
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
