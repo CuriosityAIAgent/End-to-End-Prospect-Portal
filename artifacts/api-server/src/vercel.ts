@@ -74,6 +74,48 @@ app.get("/api/_debug/db", async (_req, res) => {
   }
 });
 
+// Temporary one-shot migration endpoint — creates the tables on the exact
+// Neon DB the function is connected to. Idempotent (IF NOT EXISTS). Remove
+// once Vercel↔Neon plumbing is verified end-to-end.
+app.post("/api/_debug/migrate", async (_req, res) => {
+  try {
+    const { pool } = await import("@workspace/db");
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS prospects (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        segment TEXT,
+        relationship_manager TEXT,
+        status TEXT NOT NULL DEFAULT 'identified',
+        data JSONB NOT NULL DEFAULT '{}'::jsonb,
+        briefing JSONB,
+        converted_assessment_id INTEGER,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS assessments (
+        id SERIAL PRIMARY KEY,
+        client_name TEXT NOT NULL,
+        client_reference TEXT,
+        relationship_manager TEXT,
+        review_type TEXT,
+        risk_rating TEXT,
+        status TEXT NOT NULL DEFAULT 'draft',
+        data JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    const tables = await pool.query(
+      "select table_name from information_schema.tables where table_schema='public' order by table_name",
+    );
+    res.json({ ok: true, tables: tables.rows.map((r: { table_name: string }) => r.table_name) });
+  } catch (err) {
+    const e = err as { message?: string; code?: unknown };
+    res.status(500).json({ ok: false, error: e.message, code: e.code });
+  }
+});
+
 app.use("/api", router);
 
 // Unhandled-route-error handler. Logs the FULL error chain (including .cause,
