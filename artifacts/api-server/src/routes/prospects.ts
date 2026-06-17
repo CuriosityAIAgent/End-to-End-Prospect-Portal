@@ -242,19 +242,21 @@ router.post("/prospects/:id/briefing", async (req, res): Promise<void> => {
   try {
     // Claude's server-side web_search tool may pause after 10 internal
     // iterations (stop_reason: "pause_turn") — re-send to resume. Cap at 3
-    // continuations to bound runaway tool loops.
+    // continuations to bound runaway tool loops. Streaming with a generous
+    // max_tokens prevents both HTTP timeouts and mid-JSON truncation.
     const messages: Anthropic.MessageParam[] = [
       { role: "user", content: input },
     ];
     let response: Anthropic.Message | null = null;
     for (let i = 0; i < 4; i++) {
-      response = await claude.messages.create({
+      const stream = claude.messages.stream({
         model: DEFAULT_CLAUDE_MODEL,
-        max_tokens: 16000,
+        max_tokens: 32000,
         system: instructions,
         tools: [{ type: "web_search_20250305", name: "web_search" }],
         messages,
       });
+      response = await stream.finalMessage();
       if (response.stop_reason !== "pause_turn") break;
       messages.push({ role: "assistant", content: response.content });
     }
@@ -262,6 +264,12 @@ router.post("/prospects/:id/briefing", async (req, res): Promise<void> => {
       req.log.error("No response from briefing model");
       res.status(502).json({ error: "The briefing could not be generated. Please try again." });
       return;
+    }
+    if (response.stop_reason === "max_tokens") {
+      req.log.warn(
+        { usage: response.usage },
+        "Briefing hit max_tokens cap — response may be truncated",
+      );
     }
 
     const textBlocks = response.content.filter(
