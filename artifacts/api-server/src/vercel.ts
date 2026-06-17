@@ -48,6 +48,32 @@ router.use(fileNotesRouter);
 router.use(sourceOfWealthRouter);
 router.use(transcriptionRouter);
 
+// Temporary debug endpoint — reports the DB host the function is using and
+// whether the prospects table exists. Remove once Vercel↔Neon plumbing is
+// verified. Path is intentionally awkward to avoid collisions.
+app.get("/api/_debug/db", async (_req, res) => {
+  try {
+    const { pool } = await import("@workspace/db");
+    const url = process.env.DATABASE_URL ?? "";
+    const host = url.match(/@([^/?:]+)/)?.[1] ?? "(no match)";
+    const dbName = url.match(/\/([^/?]+)(\?|$)/)?.[1] ?? "(no match)";
+    const tables = await pool.query(
+      "select table_name from information_schema.tables where table_schema='public' order by table_name",
+    );
+    res.json({
+      ok: true,
+      dbHost: host,
+      dbName,
+      hasDatabaseUrl: url.length > 0,
+      urlLength: url.length,
+      tables: tables.rows.map((r: { table_name: string }) => r.table_name),
+    });
+  } catch (err) {
+    const e = err as { message?: string; code?: unknown };
+    res.status(500).json({ ok: false, error: e.message, code: e.code });
+  }
+});
+
 app.use("/api", router);
 
 // Unhandled-route-error handler. Logs the FULL error chain (including .cause,

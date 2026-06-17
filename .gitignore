@@ -48,3 +48,9 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+.vercel
+
+# Local env files (never commit secrets)
+.env
+.env.*
+!.env.example
