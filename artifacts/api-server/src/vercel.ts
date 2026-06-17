@@ -50,4 +50,21 @@ router.use(transcriptionRouter);
 
 app.use("/api", router);
 
+// Unhandled-route-error handler. Logs the FULL error chain (including .cause,
+// which Drizzle uses to wrap the underlying pg error) so we can see real DB
+// failures in the Vercel logs instead of a generic "Failed query: ...".
+app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const chain: Array<{ message: string; code?: unknown; stack?: string }> = [];
+  let current: unknown = err;
+  while (current) {
+    const e = current as { message?: string; code?: unknown; cause?: unknown; stack?: string };
+    chain.push({ message: e.message ?? String(current), code: e.code, stack: e.stack });
+    current = e.cause;
+  }
+  req.log.error({ errChain: chain }, "Unhandled route error");
+  if (!res.headersSent) {
+    res.status(500).json({ error: chain[chain.length - 1]?.message ?? "Internal Server Error" });
+  }
+});
+
 export default app;
