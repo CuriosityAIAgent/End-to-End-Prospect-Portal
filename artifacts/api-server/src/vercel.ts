@@ -77,7 +77,7 @@ app.get("/api/_debug/db", async (_req, res) => {
 // Temporary one-shot migration endpoint — creates the tables on the exact
 // Neon DB the function is connected to. Idempotent (IF NOT EXISTS). Remove
 // once Vercel↔Neon plumbing is verified end-to-end.
-app.post("/api/_debug/migrate", async (_req, res) => {
+const migrateHandler = async (_req: express.Request, res: express.Response) => {
   try {
     const { pool } = await import("@workspace/db");
     await pool.query(`
@@ -114,7 +114,9 @@ app.post("/api/_debug/migrate", async (_req, res) => {
     const e = err as { message?: string; code?: unknown };
     res.status(500).json({ ok: false, error: e.message, code: e.code });
   }
-});
+};
+app.get("/api/_debug/migrate", migrateHandler);
+app.post("/api/_debug/migrate", migrateHandler);
 
 app.use("/api", router);
 
