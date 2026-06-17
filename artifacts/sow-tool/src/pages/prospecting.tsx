@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { prospectStatusLabel } from "@/lib/prospectingCatalog";
 import { Compass, Plus, ChevronRight, Sparkles, CheckCircle2, Target } from "lucide-react";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 const statusTone: Record<string, string> = {
   identified: "bg-secondary text-secondary-foreground border-border",
@@ -33,6 +34,7 @@ export default function Prospecting() {
 
   const { data: prospects, isLoading } = useListProspects();
   const createProspect = useCreateProspect();
+  const { toast } = useToast();
 
   const handleCreate = () => {
     if (!newName.trim()) return;
@@ -52,6 +54,13 @@ export default function Prospecting() {
         setNewRm("");
         queryClient.invalidateQueries({ queryKey: getListProspectsQueryKey() });
         setLocation(`/prospect/${created.id}`);
+      },
+      onError: (err) => {
+        toast({
+          title: "Failed to add prospect",
+          description: err instanceof Error ? err.message : "An unexpected error occurred.",
+          variant: "destructive",
+        });
       },
     });
   };
