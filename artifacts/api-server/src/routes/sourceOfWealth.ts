@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import type Anthropic from "@anthropic-ai/sdk";
+import { claude, DEFAULT_CLAUDE_MODEL } from "@workspace/integrations-openai-ai-server";
 import {
   DraftSourceOfWealthBody,
   DraftSourceOfWealthResponse,
@@ -106,13 +107,17 @@ router.post("/source-of-wealth/draft", async (req, res): Promise<void> => {
   ].join("\n");
 
   try {
-    const response = await openai.responses.create({
-      model: "gpt-5.4",
-      instructions: DRAFT_INSTRUCTIONS,
-      input,
+    const response = await claude.messages.create({
+      model: DEFAULT_CLAUDE_MODEL,
+      max_tokens: 8000,
+      system: DRAFT_INSTRUCTIONS,
+      messages: [{ role: "user", content: input }],
     });
 
-    const text = response.output_text ?? "";
+    const text = response.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("");
 
     let statement: Record<string, string>;
     try {

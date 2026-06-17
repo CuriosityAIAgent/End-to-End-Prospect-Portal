@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
+import type Anthropic from "@anthropic-ai/sdk";
 import { eq, desc } from "drizzle-orm";
 import { db, prospectsTable, assessmentsTable, type Prospect } from "@workspace/db";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { claude, DEFAULT_CLAUDE_MODEL } from "@workspace/integrations-openai-ai-server";
 import {
   CreateProspectBody,
   GetProspectParams,
@@ -239,27 +240,47 @@ router.post("/prospects/:id/briefing", async (req, res): Promise<void> => {
     .join("\n");
 
   try {
-    const response = await openai.responses.create({
-      model: "gpt-5.4",
-      tools: [{ type: "web_search" }],
-      instructions,
-      input,
-    });
+    // Claude's server-side web_search tool may pause after 10 internal
+    // iterations (stop_reason: "pause_turn") — re-send to resume. Cap at 3
+    // continuations to bound runaway tool loops.
+    const messages: Anthropic.MessageParam[] = [
+      { role: "user", content: input },
+    ];
+    let response: Anthropic.Message | null = null;
+    for (let i = 0; i < 4; i++) {
+      response = await claude.messages.create({
+        model: DEFAULT_CLAUDE_MODEL,
+        max_tokens: 8000,
+        system: instructions,
+        tools: [{ type: "web_search_20250305", name: "web_search" }],
+        messages,
+      });
+      if (response.stop_reason !== "pause_turn") break;
+      messages.push({ role: "assistant", content: response.content });
+    }
+    if (!response) {
+      req.log.error("No response from briefing model");
+      res.status(502).json({ error: "The briefing could not be generated. Please try again." });
+      return;
+    }
 
-    const text = response.output_text ?? "";
+    const textBlocks = response.content.filter(
+      (b): b is Anthropic.TextBlock => b.type === "text",
+    );
+    const text = textBlocks.map((b) => b.text).join("");
 
-    // Collect web citations from the response annotations.
+    // Collect web citations from the text-block annotations.
     const sources: { title: string; url: string }[] = [];
     const seen = new Set<string>();
-    for (const item of response.output ?? []) {
-      if (item.type !== "message") continue;
-      for (const part of item.content ?? []) {
-        if (part.type !== "output_text") continue;
-        for (const ann of part.annotations ?? []) {
-          if (ann.type === "url_citation" && ann.url && !seen.has(ann.url)) {
-            seen.add(ann.url);
-            sources.push({ title: ann.title || ann.url, url: ann.url });
-          }
+    for (const block of textBlocks) {
+      const citations = (block as Anthropic.TextBlock & {
+        citations?: Array<{ type?: string; url?: string; title?: string }>;
+      }).citations;
+      if (!citations) continue;
+      for (const c of citations) {
+        if (c.url && !seen.has(c.url)) {
+          seen.add(c.url);
+          sources.push({ title: c.title || c.url, url: c.url });
         }
       }
     }

@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import type Anthropic from "@anthropic-ai/sdk";
+import { claude, DEFAULT_CLAUDE_MODEL } from "@workspace/integrations-openai-ai-server";
 import {
   RewriteFileNoteBody,
   RewriteFileNoteResponse,
@@ -119,13 +120,18 @@ router.post("/file-notes/rewrite", async (req, res): Promise<void> => {
   }
 
   try {
-    const response = await openai.responses.create({
-      model: "gpt-5.4",
-      instructions,
-      input,
+    const response = await claude.messages.create({
+      model: DEFAULT_CLAUDE_MODEL,
+      max_tokens: 8000,
+      system: instructions,
+      messages: [{ role: "user", content: input }],
     });
 
-    const text = (response.output_text ?? "").trim();
+    const text = response.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("")
+      .trim();
 
     if (text.length === 0) {
       req.log.error("Model returned an empty file note");

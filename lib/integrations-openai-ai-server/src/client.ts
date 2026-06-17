@@ -1,39 +1,58 @@
+import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 
-// Lazy-initialise the OpenAI client so importing this module does NOT
-// require the env vars to be present at startup. Routes that don't use AI
-// (e.g. /api/healthz, /api/prospects) must still work in environments where
-// the OpenAI integration hasn't been provisioned. Routes that DO use AI
-// will get a clear error the moment they try to call the client.
-let _client: OpenAI | null = null;
-
-function getClient(): OpenAI {
-  if (_client) return _client;
-
-  if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+// Lazy-initialise the Anthropic (Claude) client. Importing this module does
+// NOT require ANTHROPIC_API_KEY to be set — routes that don't use AI still
+// load cleanly in environments where the integration hasn't been provisioned.
+// The first property access (e.g. claude.messages.create(...)) checks the env
+// var and throws with a clear message if it's missing.
+let _claude: Anthropic | null = null;
+function getClaude(): Anthropic {
+  if (_claude) return _claude;
+  if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error(
-      "AI_INTEGRATIONS_OPENAI_BASE_URL must be set. Did you forget to provision the OpenAI AI integration?",
+      "ANTHROPIC_API_KEY must be set. Add it to the Vercel project's environment variables.",
     );
   }
-  if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    throw new Error(
-      "AI_INTEGRATIONS_OPENAI_API_KEY must be set. Did you forget to provision the OpenAI AI integration?",
-    );
-  }
-
-  _client = new OpenAI({
-    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  });
-  return _client;
+  _claude = new Anthropic();
+  return _claude;
 }
 
-// Proxy: forwards every property access to a real OpenAI instance, but the
-// real instance is only created the first time you actually use one.
-export const openai = new Proxy({} as OpenAI, {
+export const claude = new Proxy({} as Anthropic, {
   get(_target, prop, receiver) {
-    const client = getClient();
+    const client = getClaude();
     const value = Reflect.get(client, prop, receiver);
     return typeof value === "function" ? value.bind(client) : value;
   },
 });
+
+// Separate lazy OpenAI client — used ONLY by the audio/transcription path,
+// which has no Claude equivalent (Anthropic has no audio model). Routes that
+// don't transcribe never trip the env-var check.
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (_openai) return _openai;
+  if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+    throw new Error(
+      "AI_INTEGRATIONS_OPENAI_API_KEY must be set for transcription (Whisper). " +
+        "If you don't need voice notes, this can stay unset.",
+    );
+  }
+  _openai = new OpenAI({
+    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  });
+  return _openai;
+}
+
+export const openai = new Proxy({} as OpenAI, {
+  get(_target, prop, receiver) {
+    const client = getOpenAI();
+    const value = Reflect.get(client, prop, receiver);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
+
+// Default Claude model — Opus 4.8 is the most capable. Override per-call if
+// needed (e.g. switch to claude-sonnet-4-6 for cost-sensitive routes).
+export const DEFAULT_CLAUDE_MODEL = "claude-opus-4-8";
