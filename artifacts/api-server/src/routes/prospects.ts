@@ -250,7 +250,7 @@ router.post("/prospects/:id/briefing", async (req, res): Promise<void> => {
     for (let i = 0; i < 4; i++) {
       response = await claude.messages.create({
         model: DEFAULT_CLAUDE_MODEL,
-        max_tokens: 8000,
+        max_tokens: 16000,
         system: instructions,
         tools: [{ type: "web_search_20250305", name: "web_search" }],
         messages,
@@ -287,9 +287,12 @@ router.post("/prospects/:id/briefing", async (req, res): Promise<void> => {
 
     let parsed: BriefingShape;
     try {
-      const jsonStart = text.indexOf("{");
-      const jsonEnd = text.lastIndexOf("}");
-      const slice = jsonStart >= 0 && jsonEnd >= 0 ? text.slice(jsonStart, jsonEnd + 1) : text;
+      // Strip markdown code fences if Claude wrapped JSON in ```json ... ```
+      const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+      const cleaned = fenced ? fenced[1] : text;
+      const jsonStart = cleaned.indexOf("{");
+      const jsonEnd = cleaned.lastIndexOf("}");
+      const slice = jsonStart >= 0 && jsonEnd >= 0 ? cleaned.slice(jsonStart, jsonEnd + 1) : cleaned;
       const raw = JSON.parse(slice) as Partial<BriefingShape>;
       parsed = {
         summary: typeof raw.summary === "string" ? raw.summary : "",
@@ -302,8 +305,11 @@ router.post("/prospects/:id/briefing", async (req, res): Promise<void> => {
         recommendedApproach:
           typeof raw.recommendedApproach === "string" ? raw.recommendedApproach : "",
       };
-    } catch {
-      req.log.error("Failed to parse briefing JSON from model");
+    } catch (parseErr) {
+      req.log.error(
+        { textPreview: text.slice(0, 1500), parseErr },
+        "Failed to parse briefing JSON from model",
+      );
       res.status(502).json({ error: "The briefing could not be generated. Please try again." });
       return;
     }
