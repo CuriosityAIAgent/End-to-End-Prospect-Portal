@@ -29,6 +29,23 @@ are **not** deployable apps. They are compiled into the single service.
 4. **Service → Variables** — set the keys below.
 5. Deploy. One service, one URL, one database.
 
+### If the build fails with "No start command detected"
+
+Railway's builder (Railpack) didn't apply the config. Two fixes:
+
+- **Don't pin a builder.** `railway.toml` must NOT set `[build].builder` to
+  `nixpacks`/anything — that makes Railpack ignore `buildCommand`/`startCommand`
+  and try (and fail) to auto-detect a start command in the 11-package workspace.
+  This repo's `railway.toml` is already correct (no `builder` line).
+- **Or set the commands in the dashboard** (these always win). Service →
+  **Settings**:
+  - **Root Directory:** `/` (repo root — pnpm needs the whole workspace).
+  - **Build Command:** `pnpm run build:deploy`
+  - **Start Command:** `pnpm run db:push && pnpm run start`
+
+If the service was auto-created by Railway's monorepo graph (a per-package
+service), delete it and add **one** service from the repo root instead.
+
 ## Environment variables
 
 | Var | Required | Purpose |

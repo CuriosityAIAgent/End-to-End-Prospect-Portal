@@ -9,8 +9,11 @@
 # Build compiles the frontend (artifacts/sow-tool/dist/public) and the API
 # bundle; start pushes the DB schema then serves both /api and the static app.
 
+# Builder is Railway's default (Railpack). buildCommand + startCommand below are
+# honoured by Railpack — do NOT pin `builder` to a different engine or these get
+# ignored and Railpack can't pick a start command out of the 11-package workspace.
+
 [build]
-builder = "nixpacks"
 buildCommand = "pnpm run build:deploy"
 
 [deploy]
