@@ -4,12 +4,10 @@ import * as schema from "./schema";
 
 const { Pool } = pg;
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
-}
-
+// Lazy connection: the server boots WITHOUT a database (so the app/static site
+// can deploy before Postgres is provisioned). The pool connects on first query;
+// DB-backed endpoints fail per-request until DATABASE_URL is set, instead of
+// crashing the whole process at import time.
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool, { schema });
 

@@ -17,5 +17,7 @@
 buildCommand = "pnpm run build:deploy"
 
 [deploy]
-startCommand = "pnpm run db:push && pnpm run start"
+# Pushes the DB schema only when DATABASE_URL is set, then serves. Lets the core
+# app deploy before Postgres is provisioned (DB endpoints 500 until it is).
+startCommand = "pnpm run start:deploy"
 restartPolicyType = "on_failure"

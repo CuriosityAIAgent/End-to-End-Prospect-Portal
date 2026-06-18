@@ -25,7 +25,7 @@ are **not** deployable apps. They are compiled into the single service.
 2. **Add → Database → PostgreSQL** → injects `DATABASE_URL` automatically.
 3. The single service's build/start come from [`railway.toml`](railway.toml):
    - **Build:** `pnpm run build:deploy` — compiles the frontend (`artifacts/sow-tool/dist/public`) and the API bundle.
-   - **Start:** `pnpm run db:push && pnpm run start` — pushes the schema, then serves `/api` **and** the frontend on one URL.
+   - **Start:** `pnpm run start:deploy` — pushes the schema **only if `DATABASE_URL` is set**, then serves `/api` **and** the frontend on one URL. The core app boots and serves even with no database yet (DB endpoints 500 until Postgres is provisioned).
 4. **Service → Variables** — set the keys below.
 5. Deploy. One service, one URL, one database.
 
@@ -50,7 +50,7 @@ service), delete it and add **one** service from the repo root instead.
 
 | Var | Required | Purpose |
 |-----|----------|---------|
-| `DATABASE_URL` | ✅ | Postgres (provided automatically by the Railway Postgres plugin). |
+| `DATABASE_URL` | for data | Postgres (Railway Postgres plugin). The app **boots without it** — prospect/assessment endpoints 500 until it's set. |
 | `PORT` | — | Provided by the host. |
 | `OPENAI_API_KEY` | ✅ | OpenAI (verification + the default writer). `OPENAI_BASE_URL` optional. |
 | `ANTHROPIC_API_KEY` | recommended | Enables the Claude writer; without it the OpenAI writer is used. |
