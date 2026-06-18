@@ -31,6 +31,8 @@ const router: IRouter = Router();
 // the frontend stores on `data`. Kept inline so the api-server stays
 // independent of the frontend package while still producing a rich AI prompt.
 const FIELD_LABELS: Record<string, string> = {
+  industry: "Industry / sector",
+  knownInfo: "What the banker already knows",
   employer: "Employer & previous employer",
   personal: "Personal profile",
   family: "Family connections",
@@ -208,6 +210,17 @@ function bankerNotes(data: Record<string, unknown>): string {
   return lines.length ? lines.join("\n") : "(No notes captured yet.)";
 }
 
+// Disambiguating context appended to every deep-research query (industry +
+// segment). The free-text `knownInfo` is too long for queries — it grounds the
+// writer via bankerNotes instead.
+function researchContext(prospect: Prospect): string | undefined {
+  const data = (prospect.data ?? {}) as Record<string, unknown>;
+  const industry = typeof data.industry === "string" ? data.industry.trim() : "";
+  const segment = prospect.segment?.trim() ?? "";
+  const ctx = [industry, segment].filter((s) => s.length > 0).join(" ");
+  return ctx.length > 0 ? ctx : undefined;
+}
+
 function dedupeByUrl(
   items: { title: string; url: string }[],
 ): { title: string; url: string }[] {
@@ -247,7 +260,7 @@ router.post("/prospects/:id/briefing", async (req, res): Promise<void> => {
     // the model's own web search when no search keys are provisioned.
     const research = retrievalConfigured()
       ? await deepResearch(prospect.name, {
-          context: prospect.segment ?? undefined,
+          context: researchContext(prospect),
         })
       : { passages: [], anglesCovered: [] as string[] };
     const useCorpus = research.passages.length > 0;
@@ -457,7 +470,7 @@ router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
 
   try {
     const research = retrievalConfigured()
-      ? await deepResearch(prospect.name, { context: prospect.segment ?? undefined })
+      ? await deepResearch(prospect.name, { context: researchContext(prospect) })
       : { passages: [], anglesCovered: [] as string[] };
     const useCorpus = research.passages.length > 0;
     const corpusBlock = useCorpus ? corpusToPromptBlock(research.passages) : "";

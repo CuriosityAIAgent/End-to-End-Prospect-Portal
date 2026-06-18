@@ -53,10 +53,17 @@ export function ProspectPrepPanel({
   prospectId,
   prospectName,
   prep,
+  industry,
+  knownInfo,
+  onFieldChange,
 }: {
   prospectId: number;
   prospectName: string;
   prep?: PrepPack;
+  industry?: string;
+  knownInfo?: string;
+  /** Debounced autosave of a single prospect.data field. */
+  onFieldChange?: (key: string, value: string) => void;
 }) {
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +98,37 @@ export function ProspectPrepPanel({
           </p>
         </div>
       </div>
+
+      {/* What we research from — editable; sharpens the fan-out and grounds the writer. */}
+      {onFieldChange && (
+        <div className="space-y-4 border-t border-b py-6" style={{ borderColor: BORDER }}>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: ACCENT }}>
+              Industry
+            </label>
+            <input
+              type="text"
+              value={industry ?? ""}
+              onChange={(e) => onFieldChange("industry", e.target.value)}
+              placeholder="e.g. Private equity, Technology, Real estate"
+              className="w-full text-[15px] px-3 py-2 border rounded outline-none focus:border-current"
+              style={{ borderColor: BORDER, color: INK, background: "#FFFFFF" }}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: ACCENT }}>
+              What you know
+            </label>
+            <textarea
+              value={knownInfo ?? ""}
+              onChange={(e) => onFieldChange("knownInfo", e.target.value)}
+              placeholder="Their firm, role, where they're based, mutual connections, a recent deal — anything. The more you give, the sharper the research."
+              className="w-full min-h-[96px] text-[15px] leading-relaxed px-3 py-2 border rounded outline-none focus:border-current"
+              style={{ borderColor: BORDER, color: INK, background: "#FFFFFF" }}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <Button
