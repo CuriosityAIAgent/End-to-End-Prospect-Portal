@@ -7,6 +7,10 @@ import {
   sowAdditionalField,
 } from "@/lib/sowCatalog";
 import { engagedCoverage, type FileNoteData } from "@/lib/fileNoteCatalog";
+import type {
+  SourceOfWealthVerification,
+  SectionVerification,
+} from "@workspace/research-pipeline/types";
 import {
   Sparkles,
   Loader2,
@@ -15,6 +19,8 @@ import {
   AlertCircle,
   X,
   ScrollText,
+  ShieldCheck,
+  ShieldAlert,
 } from "lucide-react";
 
 // Maps a statement section id ("sow.overview") to the bare key the API returns
@@ -22,6 +28,51 @@ import {
 const stmtKey = (id: string) => id.replace(/^sow\./, "");
 
 type DraftStatement = Record<string, string>;
+
+// ── Verification presentation ───────────────────────────────────────────────
+
+const VERDICT_BADGE: Record<
+  SectionVerification["verdict"],
+  { label: string; className: string } | null
+> = {
+  supported: { label: "Verified", className: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+  partially_supported: { label: "Partly verified", className: "bg-amber-100 text-amber-800 border-amber-200" },
+  unsupported: { label: "Unverified", className: "bg-red-100 text-red-800 border-red-200" },
+  empty: null,
+};
+
+const CONFIDENCE_BANNER: Record<
+  SourceOfWealthVerification["overallConfidence"],
+  { className: string; icon: typeof ShieldCheck; label: string }
+> = {
+  high: {
+    className: "bg-emerald-50 border-emerald-200 text-emerald-900",
+    icon: ShieldCheck,
+    label: "High confidence — every claim traces to the source material.",
+  },
+  medium: {
+    className: "bg-amber-50 border-amber-200 text-amber-900",
+    icon: ShieldAlert,
+    label: "Medium confidence — review the flagged claims before accepting.",
+  },
+  low: {
+    className: "bg-red-50 border-red-200 text-red-900",
+    icon: ShieldAlert,
+    label: "Low confidence — several claims could not be verified against the inputs.",
+  },
+};
+
+function SectionBadge({ verdict }: { verdict: SectionVerification["verdict"] }) {
+  const badge = VERDICT_BADGE[verdict];
+  if (!badge) return null;
+  return (
+    <span
+      className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border ${badge.className}`}
+    >
+      {badge.label}
+    </span>
+  );
+}
 
 export function SourceOfWealthSection({
   data,
@@ -64,7 +115,12 @@ export function SourceOfWealthSection({
 
   const draft = useDraftSourceOfWealth();
   const [preview, setPreview] = useState<DraftStatement | null>(null);
+  const [verification, setVerification] = useState<SourceOfWealthVerification | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  const verdictBySection = new Map(
+    (verification?.sections ?? []).map((s) => [s.section, s] as const),
+  );
 
   const previewIsEmpty =
     preview !== null &&
@@ -73,6 +129,7 @@ export function SourceOfWealthSection({
   const runGenerate = () => {
     setAiError(null);
     setPreview(null);
+    setVerification(null);
     draft.mutate(
       {
         data: {
@@ -91,7 +148,14 @@ export function SourceOfWealthSection({
         },
       },
       {
-        onSuccess: (res) => setPreview(res.statement as unknown as DraftStatement),
+        onSuccess: (res) => {
+          setPreview(res.statement as unknown as DraftStatement);
+          // `verification` is appended by the API alongside the statement (not
+          // yet in the generated contract), so read it defensively.
+          setVerification(
+            (res as { verification?: SourceOfWealthVerification }).verification ?? null,
+          );
+        },
         onError: () => setAiError("The statement could not be drafted. Please try again."),
       },
     );
@@ -104,12 +168,20 @@ export function SourceOfWealthSection({
       values[f.id] = preview[stmtKey(f.id)] ?? "";
     });
     values["sow.generatedAt"] = new Date().toISOString();
+    // Durable audit footprint of the verification pass that accompanied this draft.
+    if (verification) {
+      values["sow.verifiedAt"] = verification.verifiedAt;
+      values["sow.verifiedConfidence"] = verification.overallConfidence;
+      values["sow.flaggedCount"] = String(verification.flaggedCount);
+    }
     onApply(values);
     setPreview(null);
+    setVerification(null);
   };
 
   const dismissPreview = () => {
     setPreview(null);
+    setVerification(null);
     setAiError(null);
   };
 
@@ -170,6 +242,26 @@ export function SourceOfWealthSection({
             </span>
           </div>
           <div className="p-4 space-y-5">
+            {/* Cross-model verification summary */}
+            {verification && !previewIsEmpty && (() => {
+              const banner = CONFIDENCE_BANNER[verification.overallConfidence];
+              const Icon = banner.icon;
+              return (
+                <div className={`flex items-start gap-2.5 border px-3 py-2.5 rounded ${banner.className}`}>
+                  <Icon className="w-4 h-4 mt-0.5 shrink-0" />
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium leading-snug">{banner.label}</p>
+                    <p className="text-xs opacity-80">
+                      Independently checked by {verification.verifierModel}
+                      {verification.flaggedCount > 0
+                        ? ` · ${verification.flaggedCount} claim${verification.flaggedCount === 1 ? "" : "s"} could not be verified`
+                        : " · all claims trace to the inputs"}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
+
             {previewIsEmpty ? (
               <p className="text-sm text-muted-foreground">
                 The meeting note and briefing didn't give enough to draft a statement. Add more
@@ -179,15 +271,33 @@ export function SourceOfWealthSection({
             ) : (
               sowStatementFields.map((f) => {
                 const text = (preview[stmtKey(f.id)] ?? "").trim();
+                const sv = verdictBySection.get(stmtKey(f.id));
+                const flagged = (sv?.claims ?? []).filter((c) => c.status === "unsupported");
                 return (
                   <div key={f.id} className="space-y-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-foreground/70">
-                      {f.label}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-foreground/70">
+                        {f.label}
+                      </span>
+                      {sv && <SectionBadge verdict={sv.verdict} />}
+                    </div>
                     {text.length > 0 ? (
                       <p className="text-sm text-foreground/90 whitespace-pre-wrap">{text}</p>
                     ) : (
                       <p className="text-sm text-muted-foreground italic">No basis in the inputs — left blank.</p>
+                    )}
+                    {flagged.length > 0 && (
+                      <ul className="mt-1.5 space-y-1">
+                        {flagged.map((c, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-xs text-red-700">
+                            <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                            <span>
+                              <span className="font-medium">Could not verify:</span> {c.claim}
+                              {c.evidence ? <span className="text-red-700/70"> — {c.evidence}</span> : null}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </div>
                 );

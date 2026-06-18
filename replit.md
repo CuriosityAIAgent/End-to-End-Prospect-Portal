@@ -10,6 +10,12 @@ An interactive private-banking workspace where a relationship manager creates a 
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
+- OpenAI (existing): `AI_INTEGRATIONS_OPENAI_API_KEY`, `AI_INTEGRATIONS_OPENAI_BASE_URL`
+- Research/verification pipeline (`@workspace/research-pipeline`) — all optional; features degrade gracefully when keys are absent:
+  - `ANTHROPIC_API_KEY` — enables the Claude writer for the SoW statement. Without it the existing OpenAI writer is used.
+  - `SOW_WRITER_PROVIDER` (`anthropic`|`openai`) — force the writer; defaults to Claude when `ANTHROPIC_API_KEY` is set, else OpenAI.
+  - `SOW_WRITER_MODEL` (default `claude-sonnet-4-6`), `SOW_VERIFIER_MODEL` (default `gpt-5.4`).
+  - `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` — robust SERP search; `JINA_API_KEY` — clean markdown extraction. Used by `retrieve()` (robust-search layer, ready to wire into the briefing / name-in prep generator).
 
 ## Stack
 

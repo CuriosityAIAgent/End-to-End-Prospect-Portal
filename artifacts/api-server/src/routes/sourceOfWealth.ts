@@ -1,6 +1,12 @@
 import { Router, type IRouter } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import {
+  anthropicConfigured,
+  writeWithClaude,
+  verifySourceOfWealth,
+  type SourceOfWealthVerification,
+} from "@workspace/research-pipeline";
+import {
   DraftSourceOfWealthBody,
   DraftSourceOfWealthResponse,
 } from "@workspace/api-zod";
@@ -106,13 +112,25 @@ router.post("/source-of-wealth/draft", async (req, res): Promise<void> => {
   ].join("\n");
 
   try {
-    const response = await openai.responses.create({
-      model: "gpt-5.4",
-      instructions: DRAFT_INSTRUCTIONS,
-      input,
-    });
+    // Writer: Claude when configured ("Claude writes, OpenAI verifies"),
+    // otherwise the existing OpenAI writer so the route keeps working until the
+    // Anthropic key is provisioned. Override with SOW_WRITER_PROVIDER.
+    const useClaude =
+      (process.env.SOW_WRITER_PROVIDER ??
+        (anthropicConfigured() ? "anthropic" : "openai")) === "anthropic" &&
+      anthropicConfigured();
 
-    const text = response.output_text ?? "";
+    let text: string;
+    if (useClaude) {
+      text = await writeWithClaude({ instructions: DRAFT_INSTRUCTIONS, input });
+    } else {
+      const response = await openai.responses.create({
+        model: "gpt-5.4",
+        instructions: DRAFT_INSTRUCTIONS,
+        input,
+      });
+      text = response.output_text ?? "";
+    }
 
     let statement: Record<string, string>;
     try {
@@ -132,10 +150,25 @@ router.post("/source-of-wealth/draft", async (req, res): Promise<void> => {
       return;
     }
 
+    // Independent cross-model verification of the draft against its source
+    // material (the writer's exact input). Non-fatal: a verifier failure returns
+    // undefined and the draft still reaches the banker, just without badges.
+    let verification: SourceOfWealthVerification | undefined;
+    try {
+      verification = await verifySourceOfWealth({ statement, sourceText: input });
+    } catch (err) {
+      req.log.warn({ err }, "Source-of-wealth verification failed (non-fatal)");
+    }
+
     // An all-empty statement is valid information ("the inputs gave no basis"),
     // so return 200 and let the UI guide the banker. 502 is reserved for genuine
-    // model / parse failures only.
-    res.json(DraftSourceOfWealthResponse.parse({ statement }));
+    // model / parse failures only. `verification` is appended alongside the
+    // schema-validated statement (additive; to be folded into the OpenAPI
+    // contract once codegen is run on a build host).
+    res.json({
+      ...DraftSourceOfWealthResponse.parse({ statement }),
+      ...(verification ? { verification } : {}),
+    });
   } catch (err) {
     req.log.error({ err }, "Source-of-wealth draft failed");
     res.status(502).json({ error: "The statement could not be drafted. Please try again." });

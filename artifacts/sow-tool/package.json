@@ -75,6 +75,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "@workspace/integrations-openai-ai-react": "workspace:*"
+    "@workspace/integrations-openai-ai-react": "workspace:*",
+    "@workspace/research-pipeline": "workspace:*"
   }
 }
