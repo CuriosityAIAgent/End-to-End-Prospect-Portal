@@ -39,39 +39,40 @@
 }
 
 :root {
-  /* Institutional Private Banking Theme - "Oxford Blue & Parchment" */
-  /* Dark mode by default for an institutional feel */
-  --background: 217 48% 8%; /* #0B1320 */
-  --foreground: 42 33% 94%; /* #F4F1EA */
+  /* JPC Private Bank — editorial light theme.
+     White ground, near-black ink, teal-green accent, soft warm-grey borders.
+     No dark mode; the register is editorial/restrained (see prospect-portal-ke). */
+  --background: 0 0% 100%; /* white */
+  --foreground: 220 14% 12%; /* near-black ink */
 
-  --card: 217 48% 10%;
-  --card-foreground: 42 33% 94%;
-  --card-border: 217 30% 18%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 14% 12%;
+  --card-border: 40 12% 90%; /* soft warm grey */
 
-  --popover: 217 48% 10%;
-  --popover-foreground: 42 33% 94%;
-  --popover-border: 217 30% 18%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 14% 12%;
+  --popover-border: 40 12% 90%;
 
-  --primary: 42 40% 60%; /* Muted gold */
-  --primary-foreground: 217 48% 8%;
+  --primary: 162 83% 33%; /* teal-green accent #0E9C77 */
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 217 30% 18%;
-  --secondary-foreground: 42 33% 94%;
+  --secondary: 40 14% 96%; /* faint warm grey surface */
+  --secondary-foreground: 220 14% 12%;
 
-  --muted: 217 30% 15%;
-  --muted-foreground: 217 20% 65%;
+  --muted: 40 14% 96%;
+  --muted-foreground: 220 6% 42%; /* mid grey for secondary text */
 
-  --accent: 217 30% 18%;
-  --accent-foreground: 42 33% 94%;
+  --accent: 40 14% 95%; /* hover surface */
+  --accent-foreground: 220 14% 12%;
 
-  --destructive: 0 60% 40%;
+  --destructive: 0 70% 45%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 217 30% 18%;
-  --input: 217 30% 18%;
-  --ring: 42 40% 60%;
+  --border: 40 12% 90%;
+  --input: 40 12% 90%;
+  --ring: 162 83% 33%;
 
-  --radius: 0.5rem; /* Softly rounded corners */
+  --radius: 0.375rem;
 }
 
 @layer base {
