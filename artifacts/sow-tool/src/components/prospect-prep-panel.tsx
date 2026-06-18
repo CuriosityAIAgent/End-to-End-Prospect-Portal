@@ -9,12 +9,13 @@ import {
 } from "lucide-react";
 
 // ── prospect-portal-ke editorial design tokens ──────────────────────────────
-// Warm off-white ground, deep-navy ink, olive accent, 1px warm-grey borders,
-// editorial serif display. No gradients, no shadows. (experience/visual_direction.md)
-const PAPER = "#FAF8F4";
-const INK = "#0E1620";
-const OLIVE = "#5B6A4E";
-const BORDER = "#D9D2C6";
+// Editorial private-bank register matching the deployed JPC portal: white
+// ground, near-black ink, teal-green accent (eyebrow rules, affordances), soft
+// 1px borders, serif display. No gradients, no shadows.
+const PAPER = "#FFFFFF";
+const INK = "#1A1A1A";
+const ACCENT = "#0E9C77"; // teal-green accent (matches the JPC portal screenshot)
+const BORDER = "#E6E4DE";
 const SERIF = "'Source Serif 4', Georgia, 'Times New Roman', serif";
 
 function Eyebrow({ children }: { children: ReactNode }) {
@@ -22,11 +23,11 @@ function Eyebrow({ children }: { children: ReactNode }) {
     <div className="flex flex-col gap-2">
       <span
         className="text-[11px] font-semibold uppercase tracking-[0.14em]"
-        style={{ color: OLIVE }}
+        style={{ color: ACCENT }}
       >
         {children}
       </span>
-      <span className="block h-px w-10" style={{ background: OLIVE }} />
+      <span className="block h-px w-10" style={{ background: ACCENT }} />
     </div>
   );
 }
@@ -96,7 +97,7 @@ export function ProspectPrepPanel({
           onClick={() => generate.mutate()}
           disabled={generate.isPending}
           className="rounded-md text-white hover:opacity-90"
-          style={{ background: OLIVE }}
+          style={{ background: ACCENT }}
         >
           {generate.isPending ? (
             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Researching &amp; drafting…</>
@@ -147,7 +148,7 @@ export function ProspectPrepPanel({
           {/* Market read */}
           {prep.marketRead.trim() && (
             <section className="space-y-3">
-              <div className="flex items-center gap-2"><Compass className="w-4 h-4" style={{ color: OLIVE }} /><SectionTitle>Our read</SectionTitle></div>
+              <div className="flex items-center gap-2"><Compass className="w-4 h-4" style={{ color: ACCENT }} /><SectionTitle>Our read</SectionTitle></div>
               <p className="text-[15px] leading-[1.6] whitespace-pre-line" style={{ color: INK }}>{prep.marketRead}</p>
             </section>
           )}
@@ -155,7 +156,7 @@ export function ProspectPrepPanel({
           {/* Cold call */}
           {(prep.coldCall.opener.trim() || prep.coldCall.talkingPoints.length > 0) && (
             <section className="space-y-3">
-              <div className="flex items-center gap-2"><Phone className="w-4 h-4" style={{ color: OLIVE }} /><SectionTitle>The approach</SectionTitle></div>
+              <div className="flex items-center gap-2"><Phone className="w-4 h-4" style={{ color: ACCENT }} /><SectionTitle>The approach</SectionTitle></div>
               {prep.coldCall.opener.trim() && (
                 <p className="text-[15px] leading-[1.6] italic" style={{ color: INK }}>“{prep.coldCall.opener}”</p>
               )}
@@ -163,7 +164,7 @@ export function ProspectPrepPanel({
                 <ul className="space-y-1.5">
                   {prep.coldCall.talkingPoints.map((t, i) => (
                     <li key={i} className="text-[15px] leading-[1.55] pl-4 relative" style={{ color: INK }}>
-                      <span className="absolute left-0" style={{ color: OLIVE }}>—</span>{t}
+                      <span className="absolute left-0" style={{ color: ACCENT }}>—</span>{t}
                     </li>
                   ))}
                 </ul>
@@ -184,11 +185,11 @@ export function ProspectPrepPanel({
           {/* Source of Wealth questions */}
           {prep.sourceOfWealth.questions.length > 0 && (
             <section className="space-y-4">
-              <div className="flex items-center gap-2"><ScrollText className="w-4 h-4" style={{ color: OLIVE }} /><SectionTitle>Source of Wealth — questions to validate</SectionTitle></div>
+              <div className="flex items-center gap-2"><ScrollText className="w-4 h-4" style={{ color: ACCENT }} /><SectionTitle>Source of Wealth — questions to validate</SectionTitle></div>
               {prep.sourceOfWealth.likelyCategories.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {prep.sourceOfWealth.likelyCategories.map((c) => (
-                    <span key={c} className="text-[11px] uppercase tracking-wider px-2 py-0.5 border rounded" style={{ borderColor: BORDER, color: OLIVE }}>{c}</span>
+                    <span key={c} className="text-[11px] uppercase tracking-wider px-2 py-0.5 border rounded" style={{ borderColor: BORDER, color: ACCENT }}>{c}</span>
                   ))}
                 </div>
               )}
@@ -199,7 +200,7 @@ export function ProspectPrepPanel({
                     {q.why && <p className="text-xs" style={{ color: "#7A7A6F" }}>Why it matters: {q.why}</p>}
                     {q.suggestedAnswer && (
                       <p className="text-sm leading-relaxed" style={{ color: "#4A4A4A" }}>
-                        <span className="font-medium" style={{ color: OLIVE }}>Likely answer (validate): </span>{q.suggestedAnswer}
+                        <span className="font-medium" style={{ color: ACCENT }}>Likely answer (validate): </span>{q.suggestedAnswer}
                       </p>
                     )}
                     {q.expectedEvidence.length > 0 && (
@@ -232,12 +233,12 @@ export function ProspectPrepPanel({
           {/* Sources */}
           {prep.sources.length > 0 && (
             <section className="space-y-2 border-t pt-4" style={{ borderColor: BORDER }}>
-              <span className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: OLIVE }}>Sources</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: ACCENT }}>Sources</span>
               <ul className="space-y-1">
                 {prep.sources.map((s, i) => (
                   <li key={i}>
                     <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-xs inline-flex items-start gap-1.5 hover:underline" style={{ color: INK }}>
-                      <ExternalLink className="w-3 h-3 mt-0.5 shrink-0" style={{ color: OLIVE }} />
+                      <ExternalLink className="w-3 h-3 mt-0.5 shrink-0" style={{ color: ACCENT }} />
                       <span>{s.title}</span>
                     </a>
                   </li>
