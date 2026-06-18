@@ -14,6 +14,7 @@ import {
 } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { FileNotePanel } from "@/components/file-note-panel";
+import { ProspectPrepPanel } from "@/components/prospect-prep-panel";
 import { SectionInfo } from "@/components/section-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -306,6 +307,13 @@ export default function Prospect() {
             <div><strong>Date:</strong> {new Date().toLocaleDateString()}</div>
           </div>
         </div>
+
+        {/* Step 0 — Deep-research prep pack (name in → advisor-ready prep) */}
+        <ProspectPrepPanel
+          prospectId={id}
+          prospectName={prospect.name}
+          prep={localData.prep as import("@workspace/research-pipeline/types").PrepPack | undefined}
+        />
 
         {/* Step 1 — Cold call script */}
         <ColdCallPanel

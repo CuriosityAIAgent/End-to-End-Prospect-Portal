@@ -1,7 +1,16 @@
 import { Router, type IRouter } from "express";
 import { eq, desc } from "drizzle-orm";
 import { db, prospectsTable, assessmentsTable, type Prospect } from "@workspace/db";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import {
+  deepResearch,
+  corpusToPromptBlock,
+  retrievalConfigured,
+  draft,
+  verifySections,
+  sowEvidencePromptBlock,
+  type Verification,
+  type PrepPack,
+} from "@workspace/research-pipeline";
 import {
   CreateProspectBody,
   GetProspectParams,
@@ -199,6 +208,20 @@ function bankerNotes(data: Record<string, unknown>): string {
   return lines.length ? lines.join("\n") : "(No notes captured yet.)";
 }
 
+function dedupeByUrl(
+  items: { title: string; url: string }[],
+): { title: string; url: string }[] {
+  const seen = new Set<string>();
+  const out: { title: string; url: string }[] = [];
+  for (const it of items) {
+    const key = it.url || it.title;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(it);
+  }
+  return out;
+}
+
 router.post("/prospects/:id/briefing", async (req, res): Promise<void> => {
   const params = GenerateProspectBriefingParams.safeParse(req.params);
   if (!params.success) {
@@ -217,52 +240,48 @@ router.post("/prospects/:id/briefing", async (req, res): Promise<void> => {
   }
 
   const notes = bankerNotes(prospect.data ?? {});
-  const instructions = [
-    "You are a private-banking research analyst at JPMorgan preparing a concise pre-meeting briefing on an ultra-high-net-worth (UHNW) prospect for a relationship manager.",
-    "Use the web search tool to find current, factual, publicly available information about the named individual (their fund/firm, role, notable deals or liquidity events, board and philanthropic roles, public interests).",
-    "Combine what you find with the banker's own notes below. Never invent facts — if something is uncertain or not found, say so plainly rather than guessing.",
-    "Return ONLY a single JSON object (no markdown fences, no prose around it) with exactly these keys:",
-    '  "summary": string — 2-3 short paragraphs profiling the prospect and why they fit the UHNW PE / hedge-fund segment.',
-    '  "talkingPoints": string[] — 4-6 specific, non-generic conversation openers grounded in the research.',
-    '  "referralRoutes": string[] — 2-5 concrete warm-introduction routes (shared employers, co-investments, schools, boards, charities, clubs) the banker could work.',
-    '  "recommendedApproach": string — a short paragraph on how to approach the first meeting.',
-  ].join("\n");
-
-  const input = [
-    `Prospect name: ${prospect.name}`,
-    prospect.segment ? `Segment: ${prospect.segment}` : "",
-    "",
-    "Banker's notes:",
-    notes,
-  ]
-    .filter(Boolean)
-    .join("\n");
 
   try {
-    const response = await openai.responses.create({
-      model: "gpt-5.4",
-      tools: [{ type: "web_search" }],
+    // Deep, multi-angle research (corporate, trusts & foundations, offshore,
+    // philanthropy, deals…) via DataForSEO + Jina when configured. Falls back to
+    // the model's own web search when no search keys are provisioned.
+    const research = retrievalConfigured()
+      ? await deepResearch(prospect.name, {
+          context: prospect.segment ?? undefined,
+        })
+      : { passages: [], anglesCovered: [] as string[] };
+    const useCorpus = research.passages.length > 0;
+    const corpusBlock = useCorpus ? corpusToPromptBlock(research.passages) : "";
+
+    const instructions = [
+      "You are a private-banking research analyst at JPMorgan preparing a concise pre-meeting briefing on an ultra-high-net-worth (UHNW) prospect for a relationship manager.",
+      useCorpus
+        ? "Use ONLY the SOURCE MATERIAL below (deep research across the prospect's companies, trusts, foundations, philanthropy, offshore structures and deals) together with the banker's own notes. Never assert anything the source material does not support — say plainly when something is uncertain or not found."
+        : "Use the web search tool to find current, factual, publicly available information (their fund/firm, role, notable deals/liquidity events, trusts and foundations, board and philanthropic roles). Combine it with the banker's notes. Never invent facts.",
+      "Return ONLY a single JSON object (no markdown fences, no prose around it) with exactly these keys:",
+      '  "summary": string — 2-3 short paragraphs profiling the prospect and why they fit the UHNW PE / hedge-fund segment.',
+      '  "talkingPoints": string[] — 4-6 specific, non-generic conversation openers grounded in the research.',
+      '  "referralRoutes": string[] — 2-5 concrete warm-introduction routes (shared employers, co-investments, schools, boards, charities, foundations, clubs) the banker could work.',
+      '  "recommendedApproach": string — a short paragraph on how to approach the first meeting.',
+    ].join("\n");
+
+    const input = [
+      `Prospect name: ${prospect.name}`,
+      prospect.segment ? `Segment: ${prospect.segment}` : "",
+      "",
+      "Banker's notes:",
+      notes,
+      ...(useCorpus ? ["", "SOURCE MATERIAL:", corpusBlock] : []),
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const { text, webSources } = await draft({
       instructions,
       input,
+      preferClaude: useCorpus, // Claude writes when we've supplied the corpus
+      allowWebSearch: !useCorpus, // else let OpenAI search the web itself
     });
-
-    const text = response.output_text ?? "";
-
-    // Collect web citations from the response annotations.
-    const sources: { title: string; url: string }[] = [];
-    const seen = new Set<string>();
-    for (const item of response.output ?? []) {
-      if (item.type !== "message") continue;
-      for (const part of item.content ?? []) {
-        if (part.type !== "output_text") continue;
-        for (const ann of part.annotations ?? []) {
-          if (ann.type === "url_citation" && ann.url && !seen.has(ann.url)) {
-            seen.add(ann.url);
-            sources.push({ title: ann.title || ann.url, url: ann.url });
-          }
-        }
-      }
-    }
 
     let parsed: BriefingShape;
     try {
@@ -287,12 +306,35 @@ router.post("/prospects/:id/briefing", async (req, res): Promise<void> => {
       return;
     }
 
-    // Reject structurally-valid but empty output rather than persisting a hollow
-    // briefing and promoting the prospect to "briefed".
     if (parsed.summary.trim().length === 0 && parsed.talkingPoints.length === 0) {
       req.log.error("Model returned an empty briefing");
       res.status(502).json({ error: "The briefing could not be generated. Please try again." });
       return;
+    }
+
+    // Sources = deep-research passages + any web_search citations, deduped.
+    const sources = dedupeByUrl([
+      ...research.passages.map((p) => ({ title: p.title, url: p.url })),
+      ...webSources,
+    ]);
+
+    // Verify the briefing against the corpus the writer used (only meaningful
+    // when we grounded with retrieved source material). Non-fatal.
+    let verification: Verification | undefined;
+    if (useCorpus) {
+      try {
+        verification = await verifySections(
+          [
+            { key: "summary", text: parsed.summary },
+            { key: "talkingPoints", text: parsed.talkingPoints.join("\n") },
+            { key: "referralRoutes", text: parsed.referralRoutes.join("\n") },
+            { key: "recommendedApproach", text: parsed.recommendedApproach },
+          ],
+          input,
+        );
+      } catch (err) {
+        req.log.warn({ err }, "Briefing verification failed (non-fatal)");
+      }
     }
 
     const briefing = {
@@ -310,7 +352,10 @@ router.post("/prospects/:id/briefing", async (req, res): Promise<void> => {
       .where(eq(prospectsTable.id, params.data.id))
       .returning();
 
-    res.json(GetProspectResponse.parse(serialize(row)));
+    res.json({
+      ...GetProspectResponse.parse(serialize(row)),
+      ...(verification ? { briefingVerification: verification } : {}),
+    });
   } catch (err) {
     req.log.error({ err }, "Briefing generation failed");
     res.status(502).json({ error: "The briefing could not be generated. Please try again." });
@@ -385,6 +430,164 @@ router.post("/prospects/:id/convert", async (req, res): Promise<void> => {
       riskRating: result.assessment.riskRating ?? undefined,
     }),
   );
+});
+
+// "Name in → advisor-ready prep": deep research → write (Claude) → verify
+// (OpenAI), producing a cold-call script, the right Source-of-Wealth questions
+// WITH anticipated answers (modelled on private-bank practice), and a market
+// read. Persisted to prospect.data.prep (open jsonb) for the RM to validate.
+router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
+  const params = GetProspectParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [prospect] = await db
+    .select()
+    .from(prospectsTable)
+    .where(eq(prospectsTable.id, params.data.id));
+
+  if (!prospect) {
+    res.status(404).json({ error: "Prospect not found" });
+    return;
+  }
+
+  const notes = bankerNotes(prospect.data ?? {});
+
+  try {
+    const research = retrievalConfigured()
+      ? await deepResearch(prospect.name, { context: prospect.segment ?? undefined })
+      : { passages: [], anglesCovered: [] as string[] };
+    const useCorpus = research.passages.length > 0;
+    const corpusBlock = useCorpus ? corpusToPromptBlock(research.passages) : "";
+
+    const instructions = [
+      "You are a senior private banker at JPMorgan preparing a relationship manager to approach a UHNW prospect. Produce a prep pack the RM can validate with the client. Never present anything as confirmed fact unless the SOURCE MATERIAL supports it; frame the rest as a likely picture to confirm.",
+      useCorpus
+        ? "Ground everything in the SOURCE MATERIAL below (deep research across the prospect's companies, trusts, foundations, philanthropy, offshore structures and deals) plus the banker's notes."
+        : "Use the web search tool to research the prospect, plus the banker's notes.",
+      "",
+      "Model the Source-of-Wealth questions and the documents you expect on how good private banks frame SoW, using this reference:",
+      sowEvidencePromptBlock(),
+      "",
+      "Return ONLY a JSON object (no markdown) with exactly:",
+      '  "marketRead": string — 2-3 short paragraphs: our read of how this person likely built their wealth and where it sits (operating companies, trusts/foundations, property, offshore). Frame inferences as inferences.',
+      '  "coldCall": { "opener": string, "talkingPoints": string[] (3-5), "anticipatedObjections": [{ "objection": string, "response": string }] (2-3) }.',
+      '  "sourceOfWealth": { "likelyCategories": string[] (category ids from the reference that most likely apply), "questions": [{ "question": string, "why": string, "suggestedAnswer": string, "expectedEvidence": string[] }] (5-6) }.',
+      "For each SoW question, `suggestedAnswer` is the anticipated answer inferred from the research/profile (the RM validates it with the client) and `expectedEvidence` lists the corroborating documents.",
+    ].join("\n");
+
+    const input = [
+      `Prospect: ${prospect.name}`,
+      prospect.segment ? `Segment: ${prospect.segment}` : "",
+      "",
+      "Banker's notes / profile:",
+      notes,
+      ...(useCorpus ? ["", "SOURCE MATERIAL:", corpusBlock] : []),
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const { text, webSources } = await draft({
+      instructions,
+      input,
+      preferClaude: useCorpus,
+      allowWebSearch: !useCorpus,
+      maxTokens: 3000,
+    });
+
+    let pack: Pick<PrepPack, "marketRead" | "coldCall" | "sourceOfWealth">;
+    try {
+      const s = text.indexOf("{");
+      const e = text.lastIndexOf("}");
+      const raw = JSON.parse(s >= 0 && e >= 0 ? text.slice(s, e + 1) : text) as Record<string, any>;
+      const cc = (raw.coldCall ?? {}) as Record<string, any>;
+      const sow = (raw.sourceOfWealth ?? {}) as Record<string, any>;
+      const strArr = (v: unknown): string[] =>
+        Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+      pack = {
+        marketRead: typeof raw.marketRead === "string" ? raw.marketRead : "",
+        coldCall: {
+          opener: typeof cc.opener === "string" ? cc.opener : "",
+          talkingPoints: strArr(cc.talkingPoints),
+          anticipatedObjections: Array.isArray(cc.anticipatedObjections)
+            ? cc.anticipatedObjections
+                .map((o: Record<string, any>) => ({
+                  objection: typeof o?.objection === "string" ? o.objection : "",
+                  response: typeof o?.response === "string" ? o.response : "",
+                }))
+                .filter((o: { objection: string }) => o.objection.trim().length > 0)
+            : [],
+        },
+        sourceOfWealth: {
+          likelyCategories: strArr(sow.likelyCategories),
+          questions: Array.isArray(sow.questions)
+            ? sow.questions
+                .map((q: Record<string, any>) => ({
+                  question: typeof q?.question === "string" ? q.question : "",
+                  why: typeof q?.why === "string" ? q.why : "",
+                  suggestedAnswer: typeof q?.suggestedAnswer === "string" ? q.suggestedAnswer : "",
+                  expectedEvidence: strArr(q?.expectedEvidence),
+                }))
+                .filter((q: { question: string }) => q.question.trim().length > 0)
+            : [],
+        },
+      };
+    } catch {
+      req.log.error("Failed to parse prep JSON from model");
+      res.status(502).json({ error: "The prep pack could not be generated. Please try again." });
+      return;
+    }
+
+    if (!pack.marketRead.trim() && pack.sourceOfWealth.questions.length === 0) {
+      res.status(502).json({ error: "The prep pack could not be generated. Please try again." });
+      return;
+    }
+
+    const sources = dedupeByUrl([
+      ...research.passages.map((p) => ({ title: p.title, url: p.url })),
+      ...webSources,
+    ]);
+
+    let verification: Verification | undefined;
+    if (useCorpus) {
+      try {
+        verification = await verifySections(
+          [
+            { key: "marketRead", text: pack.marketRead },
+            { key: "coldCall", text: [pack.coldCall.opener, ...pack.coldCall.talkingPoints].join("\n") },
+            ...pack.sourceOfWealth.questions.map((q, i) => ({
+              key: `sow_answer_${i + 1}`,
+              text: q.suggestedAnswer,
+            })),
+          ],
+          input,
+        );
+      } catch (err) {
+        req.log.warn({ err }, "Prep verification failed (non-fatal)");
+      }
+    }
+
+    const prep: PrepPack = {
+      ...pack,
+      sources,
+      verification,
+      generatedAt: new Date().toISOString(),
+    };
+
+    const prospectData = (prospect.data ?? {}) as Record<string, unknown>;
+    const [row] = await db
+      .update(prospectsTable)
+      .set({ data: { ...prospectData, prep } })
+      .where(eq(prospectsTable.id, params.data.id))
+      .returning();
+
+    res.json(GetProspectResponse.parse(serialize(row)));
+  } catch (err) {
+    req.log.error({ err }, "Prep generation failed");
+    res.status(502).json({ error: "The prep pack could not be generated. Please try again." });
+  }
 });
 
 export default router;
