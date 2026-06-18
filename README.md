@@ -33,7 +33,7 @@ Other commands:
 | `OPENAI_API_KEY` | OpenAI key (required for AI features). `OPENAI_BASE_URL` optional for a gateway. _(Legacy `AI_INTEGRATIONS_OPENAI_*` names still honoured.)_ |
 | `ANTHROPIC_API_KEY` | Enables the Claude writer. Without it the OpenAI writer is used. |
 | `SOW_WRITER_PROVIDER` | `anthropic`\|`openai` — force the writer; defaults to Claude when `ANTHROPIC_API_KEY` is set. |
-| `SOW_WRITER_MODEL` / `SOW_WRITER_MODEL_OPENAI` / `SOW_VERIFIER_MODEL` | Model overrides (defaults: `claude-sonnet-4-6` / `gpt-5.4` / `gpt-5.4`). |
+| `SOW_WRITER_MODEL` (Claude writer) / `SOW_VERIFIER_MODEL` / `SOW_WRITER_MODEL_OPENAI` | Model overrides. Defaults: `claude-sonnet-4-6` (writer) / `gpt-4o-mini` (verifier) / `gpt-4o` (OpenAI writer fallback). |
 | `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` | Robust SERP search for deep research. |
 | `JINA_API_KEY` | Clean markdown extraction (`r.jina.ai`) for deep research. |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Service-account key for object storage (optional; storage routes only). |

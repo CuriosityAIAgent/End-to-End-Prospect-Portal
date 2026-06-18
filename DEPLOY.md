@@ -56,7 +56,7 @@ service), delete it and add **one** service from the repo root instead.
 | `ANTHROPIC_API_KEY` | recommended | Enables the Claude writer; without it the OpenAI writer is used. |
 | `DATAFORSEO_LOGIN` + `DATAFORSEO_PASSWORD` | recommended | Robust SERP search for deep research. |
 | `JINA_API_KEY` | recommended | Clean markdown extraction for deep research. |
-| `SOW_WRITER_MODEL_OPENAI` / `SOW_VERIFIER_MODEL` | optional | Override the OpenAI model ids (default `gpt-5.4`). Set to a current OpenAI model id if `gpt-5.4` is unavailable on your key. |
+| `SOW_VERIFIER_MODEL` / `SOW_WRITER_MODEL_OPENAI` / `FILE_NOTE_MODEL` | optional | OpenAI model overrides (defaults: `gpt-4o-mini` verifier / `gpt-4o` writer-fallback / `gpt-4o` file-note). Set to a newer OpenAI model if you prefer. |
 | `SOW_WRITER_MODEL` | optional | Claude model id (default `claude-sonnet-4-6`). |
 | `WEB_DIST` | optional | Override the static-frontend path (default `artifacts/sow-tool/dist/public`). |
 | `GOOGLE_APPLICATION_CREDENTIALS` | optional | Only for the object-storage routes (standard GCS). |
