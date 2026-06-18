@@ -16,6 +16,7 @@ import { OverviewVideo } from "@/components/overview-video";
 import { SectionInfo } from "@/components/section-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { reviewTypeOptions, riskRatingOptions } from "@/lib/sowCatalog";
@@ -92,8 +93,8 @@ export default function Journey() {
   const createProspect = useCreateProspect();
   const [isProspectOpen, setIsProspectOpen] = useState(false);
   const [pName, setPName] = useState("");
-  const [pSegment, setPSegment] = useState("");
-  const [pRm, setPRm] = useState("");
+  const [pIndustry, setPIndustry] = useState("");
+  const [pKnown, setPKnown] = useState("");
 
   const handleCreateProspect = () => {
     if (!pName.trim()) return;
@@ -101,18 +102,22 @@ export default function Journey() {
       {
         data: {
           name: pName.trim(),
-          segment: pSegment.trim() || null,
-          relationshipManager: pRm.trim() || null,
+          segment: null,
+          relationshipManager: null,
           status: "identified",
-          data: {},
+          // Industry + free-text "what you know" seed the deep research.
+          data: {
+            industry: pIndustry.trim() || undefined,
+            knownInfo: pKnown.trim() || undefined,
+          },
         },
       },
       {
         onSuccess: (created) => {
           setIsProspectOpen(false);
           setPName("");
-          setPSegment("");
-          setPRm("");
+          setPIndustry("");
+          setPKnown("");
           queryClient.invalidateQueries({ queryKey: getListProspectsQueryKey() });
           setLocation(`/prospect/${created.id}`);
         },
@@ -243,14 +248,14 @@ export default function Journey() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px] rounded-md border-border bg-card">
                 <DialogHeader>
-                  <DialogTitle className="font-serif text-xl">Add Prospect</DialogTitle>
+                  <DialogTitle className="font-serif text-xl">Add a prospect</DialogTitle>
                   <DialogDescription>
-                    Begin the journey — capture the name to start the cold-call and brief.
+                    Their name, their industry, and anything you already know. We research the rest.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <label htmlFor="p-name" className="text-sm font-medium">Prospect Name</label>
+                    <label htmlFor="p-name" className="text-sm font-medium">Name</label>
                     <Input
                       id="p-name"
                       value={pName}
@@ -260,27 +265,27 @@ export default function Journey() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <label htmlFor="p-segment" className="text-sm font-medium">
-                      Segment <span className="text-muted-foreground font-normal">(optional)</span>
+                    <label htmlFor="p-industry" className="text-sm font-medium">
+                      Industry <span className="text-muted-foreground font-normal">(optional, sharpens the research)</span>
                     </label>
                     <Input
-                      id="p-segment"
-                      value={pSegment}
-                      onChange={(e) => setPSegment(e.target.value)}
+                      id="p-industry"
+                      value={pIndustry}
+                      onChange={(e) => setPIndustry(e.target.value)}
                       className="rounded-md bg-background border-border"
-                      placeholder="e.g. PE Partner, Founder, Family Office"
+                      placeholder="e.g. Private equity, Technology, Real estate"
                     />
                   </div>
                   <div className="grid gap-2">
-                    <label htmlFor="p-rm" className="text-sm font-medium">
-                      Relationship Manager <span className="text-muted-foreground font-normal">(optional)</span>
+                    <label htmlFor="p-known" className="text-sm font-medium">
+                      What you know <span className="text-muted-foreground font-normal">(optional)</span>
                     </label>
-                    <Input
-                      id="p-rm"
-                      value={pRm}
-                      onChange={(e) => setPRm(e.target.value)}
-                      className="rounded-md bg-background border-border"
-                      placeholder="e.g. A. Banker"
+                    <Textarea
+                      id="p-known"
+                      value={pKnown}
+                      onChange={(e) => setPKnown(e.target.value)}
+                      className="min-h-[110px] rounded-md bg-background border-border"
+                      placeholder="Their firm, role, where they're based, mutual connections, a recent deal — anything. The more you give, the sharper the research."
                     />
                   </div>
                 </div>
@@ -291,7 +296,7 @@ export default function Journey() {
                     disabled={!pName.trim() || createProspect.isPending}
                     className="rounded-md bg-primary text-primary-foreground"
                   >
-                    {createProspect.isPending ? "Adding..." : "Add Prospect"}
+                    {createProspect.isPending ? "Adding…" : "Add & open"}
                   </Button>
                 </DialogFooter>
               </DialogContent>

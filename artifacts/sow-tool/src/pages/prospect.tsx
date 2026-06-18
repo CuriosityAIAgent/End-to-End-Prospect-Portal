@@ -313,6 +313,9 @@ export default function Prospect() {
           prospectId={id}
           prospectName={prospect.name}
           prep={localData.prep as import("@workspace/research-pipeline/types").PrepPack | undefined}
+          industry={localData.industry as string | undefined}
+          knownInfo={localData.knownInfo as string | undefined}
+          onFieldChange={handleDataChange}
         />
 
         {/* Step 1 — Cold call script */}
