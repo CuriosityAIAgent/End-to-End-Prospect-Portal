@@ -1,0 +1,21 @@
+# Railway deployment — single service (API serves the built frontend).
+#
+# Setup in the Railway dashboard:
+#   1. Add a PostgreSQL plugin → it injects DATABASE_URL automatically.
+#   2. Add service variables: OPENAI_API_KEY, ANTHROPIC_API_KEY,
+#      DATAFORSEO_LOGIN, DATAFORSEO_PASSWORD, JINA_API_KEY.
+#      (PORT is provided by Railway.)
+#
+# Build compiles the frontend (artifacts/sow-tool/dist/public) and the API
+# bundle; start pushes the DB schema then serves both /api and the static app.
+
+# Builder is Railway's default (Railpack). buildCommand + startCommand below are
+# honoured by Railpack — do NOT pin `builder` to a different engine or these get
+# ignored and Railpack can't pick a start command out of the 11-package workspace.
+
+[build]
+buildCommand = "pnpm run build:deploy"
+
+[deploy]
+startCommand = "pnpm run db:push && pnpm run start"
+restartPolicyType = "on_failure"
