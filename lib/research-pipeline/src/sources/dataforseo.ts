@@ -48,6 +48,7 @@ export async function dataForSeoSearch(
         body: JSON.stringify([
           { keyword: query, language_code: "en", location_code: 2826, depth: limit },
         ]),
+        signal: AbortSignal.timeout(20_000),
       },
     );
     if (!res.ok) return [];

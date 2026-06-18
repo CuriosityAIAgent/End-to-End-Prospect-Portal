@@ -1,8 +1,7 @@
 import { Router, type IRouter } from "express";
-import { openai } from "@workspace/integrations-openai-ai-server";
 import {
   anthropicConfigured,
-  writeWithClaude,
+  draft,
   verifySourceOfWealth,
   type SourceOfWealthVerification,
 } from "@workspace/research-pipeline";
@@ -113,24 +112,16 @@ router.post("/source-of-wealth/draft", async (req, res): Promise<void> => {
 
   try {
     // Writer: Claude when configured ("Claude writes, OpenAI verifies"),
-    // otherwise the existing OpenAI writer so the route keeps working until the
-    // Anthropic key is provisioned. Override with SOW_WRITER_PROVIDER.
+    // otherwise OpenAI (model honours SOW_WRITER_MODEL_OPENAI). Same engine the
+    // briefing / prep routes use. Override the choice with SOW_WRITER_PROVIDER.
     const useClaude =
       (process.env.SOW_WRITER_PROVIDER ??
-        (anthropicConfigured() ? "anthropic" : "openai")) === "anthropic" &&
-      anthropicConfigured();
-
-    let text: string;
-    if (useClaude) {
-      text = await writeWithClaude({ instructions: DRAFT_INSTRUCTIONS, input });
-    } else {
-      const response = await openai.responses.create({
-        model: "gpt-5.4",
-        instructions: DRAFT_INSTRUCTIONS,
-        input,
-      });
-      text = response.output_text ?? "";
-    }
+        (anthropicConfigured() ? "anthropic" : "openai")) === "anthropic";
+    const { text } = await draft({
+      instructions: DRAFT_INSTRUCTIONS,
+      input,
+      preferClaude: useClaude,
+    });
 
     let statement: Record<string, string>;
     try {

@@ -11,6 +11,7 @@
 // ============================================================================
 
 import type { RetrievedPassage } from "../types";
+import { mapLimit } from "../util/concurrency";
 import { dataForSeoConfigured, dataForSeoSearch } from "./dataforseo";
 import { jinaConfigured, jinaRead, jinaSearch } from "./jina";
 
@@ -36,10 +37,16 @@ export async function retrieve(
   // Preferred path: DataForSEO for recall, Jina for clean extraction.
   if (dataForSeoConfigured()) {
     const hits = await dataForSeoSearch(query, limit);
+
+    // Bad/again-rate-limited DataForSEO creds return []. Don't silently lose
+    // grounding — fall back to Jina search when it's available.
+    if (hits.length === 0 && jinaConfigured()) {
+      return jinaSearch(query, limit);
+    }
     if (!extract || !jinaConfigured()) return hits;
 
-    const extracted = await Promise.all(
-      hits.map(async (hit) => (hit.url ? await jinaRead(hit.url) : null)),
+    const extracted = await mapLimit(hits, 4, (hit) =>
+      hit.url ? jinaRead(hit.url) : Promise.resolve(null),
     );
     // Prefer the full Jina extract; fall back to the SERP snippet where the
     // page couldn't be fetched (paywall, timeout, etc.).

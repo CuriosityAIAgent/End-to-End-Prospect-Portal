@@ -25,6 +25,7 @@ export async function jinaRead(url: string): Promise<RetrievedPassage | null> {
   try {
     const res = await fetch(`https://r.jina.ai/${url}`, {
       headers: { ...authHeaders(), "X-Return-Format": "markdown" },
+      signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) return null;
     const text = await res.text();
@@ -56,6 +57,7 @@ export async function jinaSearch(
   try {
     const res = await fetch(`https://s.jina.ai/?q=${encodeURIComponent(query)}`, {
       headers: { ...authHeaders(), Accept: "application/json" },
+      signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) return [];
     const body = (await res.json()) as { data?: JinaSearchHit[] };

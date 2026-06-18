@@ -18,6 +18,7 @@ import type {
 } from "../types";
 import { retrieve } from "../sources/retrieve";
 import { domainsForAngle } from "../sources/deepDiveSources";
+import { mapLimit } from "../util/concurrency";
 
 // Keyword seeds that steer each angle's query.
 const ANGLE_KEYWORDS: Record<ResearchAngle, string> = {
@@ -82,19 +83,19 @@ export async function deepResearch(
   const ctx = options.context?.trim() ? ` ${options.context.trim()}` : "";
   const subjectCtx = `${subject}${ctx}`;
 
-  const tasks: Promise<{ angle: ResearchAngle; passages: RetrievedPassage[] }>[] = [];
+  const queries: { angle: ResearchAngle; query: string }[] = [];
   for (const angle of angles) {
     for (const query of anglesQueries(subjectCtx, angle)) {
-      tasks.push(
-        retrieve(query, { limit: perAngle }).then((passages) => ({
-          angle,
-          passages: passages.map((p) => ({ ...p, angle })),
-        })),
-      );
+      queries.push({ angle, query });
     }
   }
 
-  const results = await Promise.all(tasks);
+  // Cap concurrent retrieves so one pass can't fire dozens of simultaneous
+  // outbound requests (each retrieve also caps its own extraction concurrency).
+  const results = await mapLimit(queries, 4, async ({ angle, query }) => {
+    const passages = await retrieve(query, { limit: perAngle });
+    return { angle, passages: passages.map((p) => ({ ...p, angle })) };
+  });
 
   // Dedupe by URL across all angles, keeping the first (angle-tagged) hit.
   const seen = new Set<string>();
