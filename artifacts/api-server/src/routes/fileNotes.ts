@@ -120,7 +120,7 @@ router.post("/file-notes/rewrite", async (req, res): Promise<void> => {
 
   try {
     const response = await openai.responses.create({
-      model: "gpt-5.4",
+      model: process.env.FILE_NOTE_MODEL ?? "gpt-4o",
       instructions,
       input,
     });

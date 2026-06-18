@@ -11,7 +11,9 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { anthropicConfigured, writeWithClaude } from "./anthropic";
 
-const OPENAI_WRITER_MODEL = process.env.SOW_WRITER_MODEL_OPENAI ?? "gpt-5.4";
+// Only used as the fallback writer when Claude isn't configured. Override with
+// SOW_WRITER_MODEL_OPENAI. (The primary writer is Claude — SOW_WRITER_MODEL.)
+const OPENAI_WRITER_MODEL = process.env.SOW_WRITER_MODEL_OPENAI ?? "gpt-4o";
 
 export interface DraftOptions {
   instructions: string;

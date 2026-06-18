@@ -17,7 +17,9 @@ import type {
   Verification,
 } from "../types";
 
-const VERIFIER_MODEL = process.env.SOW_VERIFIER_MODEL ?? "gpt-5.4";
+// Verification is a light, structured claim-check — a fast/cheap OpenAI model
+// is optimal here. Override with SOW_VERIFIER_MODEL.
+const VERIFIER_MODEL = process.env.SOW_VERIFIER_MODEL ?? "gpt-4o-mini";
 
 const VERIFY_INSTRUCTIONS = [
   "You are an independent compliance verifier at a private bank. Another analyst has drafted client-facing material. You are given the SOURCE MATERIAL they worked from and their DRAFT, split into sections.",
