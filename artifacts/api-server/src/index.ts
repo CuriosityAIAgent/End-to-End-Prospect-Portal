@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { recoverStaleJobs } from "./jobs/runner";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +23,8 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Any job left mid-run by a previous process is orphaned — fail it so the UI
+  // stops polling and offers a retry, rather than spinning forever.
+  void recoverStaleJobs();
 });

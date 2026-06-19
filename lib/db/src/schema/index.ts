@@ -19,3 +19,4 @@
 
 export * from "./assessments";
 export * from "./prospects";
+export * from "./jobs";

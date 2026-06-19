@@ -1,12 +1,46 @@
-import { useState, type ReactNode } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { customFetch, getGetProspectQueryKey } from "@workspace/api-client-react";
 import type { PrepPack } from "@workspace/research-pipeline/types";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Sparkles, Loader2, AlertCircle, ShieldCheck, ShieldAlert,
-  Phone, ScrollText, Compass, ExternalLink, FileText,
+  Phone, ScrollText, Compass, ExternalLink, FileText, Check, Gauge, Layers,
 } from "lucide-react";
+
+type ResearchDepth = "quick" | "deep";
+
+type JobStatus = "queued" | "researching" | "drafting" | "verifying" | "done" | "failed";
+
+interface JobView {
+  id: string;
+  status: JobStatus;
+  progress: number;
+  stageDetail: string | null;
+  partial: PrepPack | null;
+  result: PrepPack | null;
+  error: string | null;
+  startedAt: string | null;
+}
+
+const isTerminal = (s: JobStatus | undefined): boolean => s === "done" || s === "failed";
+
+// Ordered stages for the progress strip; index used to mark done / active / pending.
+const STAGES: { key: JobStatus; label: string }[] = [
+  { key: "researching", label: "Searching sources" },
+  { key: "drafting", label: "Drafting the read" },
+  { key: "verifying", label: "Verifying claims" },
+];
+const STAGE_INDEX: Record<JobStatus, number> = {
+  queued: 0, researching: 0, drafting: 1, verifying: 2, done: 3, failed: 0,
+};
+
+function formatElapsed(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 // ── prospect-portal-ke editorial design tokens ──────────────────────────────
 // Editorial private-bank register matching the deployed JPC portal: white
@@ -67,18 +101,72 @@ export function ProspectPrepPanel({
 }) {
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const [depth, setDepth] = useState<ResearchDepth>("deep");
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   const generate = useMutation({
-    mutationFn: () =>
-      customFetch<unknown>(`/api/prospects/${prospectId}/prep`, { method: "POST" }),
+    mutationFn: (d: ResearchDepth) =>
+      customFetch<{ jobId: string }>(`/api/prospects/${prospectId}/prep`, {
+        method: "POST",
+        body: JSON.stringify({ depth: d }),
+      }),
     onMutate: () => setError(null),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: getGetProspectQueryKey(prospectId) });
-    },
+    onSuccess: (res) => setJobId(res.jobId),
     onError: () => setError("The prep pack could not be generated. Please try again."),
   });
 
-  const flagged = (prep?.verification?.sections ?? []).flatMap((s) =>
+  // Poll the background job while it runs; stop once it's terminal.
+  const jobQuery = useQuery({
+    queryKey: ["prep-job", prospectId, jobId],
+    queryFn: () => customFetch<JobView>(`/api/jobs/${jobId}`),
+    enabled: !!jobId,
+    refetchInterval: (q) => (isTerminal(q.state.data?.status) ? false : 1500),
+  });
+  const job = jobId ? jobQuery.data : undefined;
+  const active = !!job && !isTerminal(job.status);
+
+  // Reattach to a run already in progress on load (refresh / navigation).
+  useEffect(() => {
+    let cancelled = false;
+    customFetch<JobView | null>(`/api/prospects/${prospectId}/jobs/latest?kind=prospect_prep`)
+      .then((j) => {
+        if (!cancelled && j && !isTerminal(j.status)) setJobId(j.id);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [prospectId]);
+
+  // On completion, refresh the prospect so the saved prep loads; surface failures.
+  useEffect(() => {
+    if (job?.status === "done") {
+      qc.invalidateQueries({ queryKey: getGetProspectQueryKey(prospectId) });
+    } else if (job?.status === "failed") {
+      setError(
+        job.error === "interrupted"
+          ? "That run was interrupted — please try again."
+          : "The prep pack could not be generated. Please try again.",
+      );
+    }
+  }, [job?.status, job?.error, prospectId, qc]);
+
+  // Tick the elapsed timer while a job is active.
+  useEffect(() => {
+    if (!active) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [active]);
+
+  const working = generate.isPending || active;
+  const elapsed = job?.startedAt
+    ? Math.max(0, Math.floor((now - new Date(job.startedAt).getTime()) / 1000))
+    : 0;
+
+  // While a job runs, reveal its partial (the drafted read) before verification
+  // finishes; otherwise show the saved prep.
+  const shown: PrepPack | undefined = (active ? job?.partial ?? undefined : undefined) ?? prep;
+
+  const flagged = (shown?.verification?.sections ?? []).flatMap((s) =>
     s.claims.filter((c) => c.status === "unsupported").map((c) => ({ ...c, section: s.section })),
   );
 
@@ -130,42 +218,104 @@ export function ProspectPrepPanel({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Depth toggle — Quick (fast cold-call read) vs Deep (full registry sweep). */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="inline-flex rounded-md border overflow-hidden" style={{ borderColor: BORDER }}>
+          {([
+            { key: "deep", icon: Layers, label: "Deep", hint: "Full registry sweep" },
+            { key: "quick", icon: Gauge, label: "Quick", hint: "Fast read" },
+          ] as const).map((opt) => {
+            const on = depth === opt.key;
+            const Icon = opt.icon;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                disabled={working}
+                onClick={() => setDepth(opt.key)}
+                title={opt.hint}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors disabled:opacity-50",
+                )}
+                style={on ? { background: ACCENT, color: "#fff" } : { background: "#fff", color: INK }}
+              >
+                <Icon className="w-3.5 h-3.5" /> {opt.label}
+              </button>
+            );
+          })}
+        </div>
+
         <Button
-          onClick={() => generate.mutate()}
-          disabled={generate.isPending}
+          onClick={() => generate.mutate(depth)}
+          disabled={working}
           className="rounded-md text-white hover:opacity-90"
           style={{ background: ACCENT }}
         >
-          {generate.isPending ? (
-            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Researching &amp; drafting…</>
+          {working ? (
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Working…</>
           ) : (
             <><Sparkles className="w-4 h-4 mr-2" /> {prep ? "Regenerate prep pack" : "Generate prep pack"}</>
           )}
         </Button>
-        {prep?.generatedAt && (
+        {prep?.generatedAt && !active && (
           <span className="text-xs" style={{ color: "#7A7A6F" }}>
             Last prepared {new Date(prep.generatedAt).toLocaleString()}
           </span>
         )}
-        {generate.isPending && (
-          <span className="text-xs" style={{ color: "#7A7A6F" }}>
-            Deep research runs several searches — this can take a moment.
-          </span>
-        )}
       </div>
 
-      {error && (
+      {/* Staged progress — what the banker watches instead of a dead spinner. */}
+      {working && (
+        <div className="space-y-3 border rounded-md p-4" style={{ borderColor: BORDER, background: "#FBFAF7" }}>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium" style={{ color: INK }}>
+              {job?.stageDetail ?? "Starting…"}
+            </span>
+            <span className="text-xs tabular-nums" style={{ color: "#7A7A6F" }}>{formatElapsed(elapsed)}</span>
+          </div>
+          <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: BORDER }}>
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${Math.max(5, job?.progress ?? 5)}%`, background: ACCENT }}
+            />
+          </div>
+          <div className="flex flex-wrap gap-x-6 gap-y-1.5">
+            {STAGES.map((stage) => {
+              const cur = job ? STAGE_INDEX[job.status] : 0;
+              const idx = STAGE_INDEX[stage.key];
+              const done = cur > idx;
+              const isActive = cur === idx;
+              return (
+                <span key={stage.key} className="inline-flex items-center gap-1.5 text-xs" style={{ color: done || isActive ? INK : "#A8A29A" }}>
+                  {done ? (
+                    <Check className="w-3.5 h-3.5" style={{ color: ACCENT }} />
+                  ) : isActive ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: ACCENT }} />
+                  ) : (
+                    <span className="w-3.5 h-3.5 inline-flex items-center justify-center"><span className="w-1.5 h-1.5 rounded-full" style={{ background: "#D6D1C7" }} /></span>
+                  )}
+                  {stage.label}
+                </span>
+              );
+            })}
+          </div>
+          <p className="text-xs" style={{ color: "#7A7A6F" }}>
+            You can leave this page — we'll keep working, and you'll find it ready when you return.
+          </p>
+        </div>
+      )}
+
+      {error && !active && (
         <div className="flex items-center gap-2 text-sm text-red-700">
           <AlertCircle className="w-4 h-4" /> {error}
         </div>
       )}
 
-      {prep && (
+      {shown && (
         <div className="space-y-10 pt-2">
           {/* Verification banner */}
-          {prep.verification && (() => {
-            const b = CONFIDENCE[prep.verification.overallConfidence];
+          {shown.verification && (() => {
+            const b = CONFIDENCE[shown.verification.overallConfidence];
             const Icon = b.icon;
             return (
               <div className={`flex items-start gap-2.5 border px-3 py-2.5 rounded ${b.className}`}>
@@ -173,9 +323,9 @@ export function ProspectPrepPanel({
                 <div className="space-y-0.5">
                   <p className="text-sm font-medium leading-snug">{b.label}</p>
                   <p className="text-xs opacity-80">
-                    Independently checked by {prep.verification.verifierModel}
-                    {prep.verification.flaggedCount > 0
-                      ? ` · ${prep.verification.flaggedCount} point${prep.verification.flaggedCount === 1 ? "" : "s"} to verify`
+                    Independently checked by {shown.verification.verifierModel}
+                    {shown.verification.flaggedCount > 0
+                      ? ` · ${shown.verification.flaggedCount} point${shown.verification.flaggedCount === 1 ? "" : "s"} to verify`
                       : " · all points corroborated"}
                   </p>
                 </div>
@@ -184,32 +334,32 @@ export function ProspectPrepPanel({
           })()}
 
           {/* Market read */}
-          {prep.marketRead.trim() && (
+          {shown.marketRead.trim() && (
             <section className="space-y-3">
               <div className="flex items-center gap-2"><Compass className="w-4 h-4" style={{ color: ACCENT }} /><SectionTitle>Our read</SectionTitle></div>
-              <p className="text-[15px] leading-[1.6] whitespace-pre-line" style={{ color: INK }}>{prep.marketRead}</p>
+              <p className="text-[15px] leading-[1.6] whitespace-pre-line" style={{ color: INK }}>{shown.marketRead}</p>
             </section>
           )}
 
           {/* Cold call */}
-          {(prep.coldCall.opener.trim() || prep.coldCall.talkingPoints.length > 0) && (
+          {(shown.coldCall.opener.trim() || shown.coldCall.talkingPoints.length > 0) && (
             <section className="space-y-3">
               <div className="flex items-center gap-2"><Phone className="w-4 h-4" style={{ color: ACCENT }} /><SectionTitle>The approach</SectionTitle></div>
-              {prep.coldCall.opener.trim() && (
-                <p className="text-[15px] leading-[1.6] italic" style={{ color: INK }}>“{prep.coldCall.opener}”</p>
+              {shown.coldCall.opener.trim() && (
+                <p className="text-[15px] leading-[1.6] italic" style={{ color: INK }}>“{shown.coldCall.opener}”</p>
               )}
-              {prep.coldCall.talkingPoints.length > 0 && (
+              {shown.coldCall.talkingPoints.length > 0 && (
                 <ul className="space-y-1.5">
-                  {prep.coldCall.talkingPoints.map((t, i) => (
+                  {shown.coldCall.talkingPoints.map((t, i) => (
                     <li key={i} className="text-[15px] leading-[1.55] pl-4 relative" style={{ color: INK }}>
                       <span className="absolute left-0" style={{ color: ACCENT }}>—</span>{t}
                     </li>
                   ))}
                 </ul>
               )}
-              {prep.coldCall.anticipatedObjections.length > 0 && (
+              {shown.coldCall.anticipatedObjections.length > 0 && (
                 <div className="space-y-2 pt-2">
-                  {prep.coldCall.anticipatedObjections.map((o, i) => (
+                  {shown.coldCall.anticipatedObjections.map((o, i) => (
                     <div key={i} className="border-l-2 pl-3" style={{ borderColor: BORDER }}>
                       <p className="text-sm font-medium" style={{ color: INK }}>“{o.objection}”</p>
                       <p className="text-sm" style={{ color: "#4A4A4A" }}>{o.response}</p>
@@ -221,18 +371,18 @@ export function ProspectPrepPanel({
           )}
 
           {/* Source of Wealth questions */}
-          {prep.sourceOfWealth.questions.length > 0 && (
+          {shown.sourceOfWealth.questions.length > 0 && (
             <section className="space-y-4">
               <div className="flex items-center gap-2"><ScrollText className="w-4 h-4" style={{ color: ACCENT }} /><SectionTitle>Source of Wealth — questions to validate</SectionTitle></div>
-              {prep.sourceOfWealth.likelyCategories.length > 0 && (
+              {shown.sourceOfWealth.likelyCategories.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {prep.sourceOfWealth.likelyCategories.map((c) => (
+                  {shown.sourceOfWealth.likelyCategories.map((c) => (
                     <span key={c} className="text-[11px] uppercase tracking-wider px-2 py-0.5 border rounded" style={{ borderColor: BORDER, color: ACCENT }}>{c}</span>
                   ))}
                 </div>
               )}
               <ol className="space-y-5">
-                {prep.sourceOfWealth.questions.map((q, i) => (
+                {shown.sourceOfWealth.questions.map((q, i) => (
                   <li key={i} className="space-y-1.5 border-t pt-4" style={{ borderColor: BORDER }}>
                     <p className="text-[16px] leading-snug font-medium" style={{ color: INK }}>{i + 1}. {q.question}</p>
                     {q.why && <p className="text-xs" style={{ color: "#7A7A6F" }}>Why it matters: {q.why}</p>}
@@ -269,11 +419,11 @@ export function ProspectPrepPanel({
           )}
 
           {/* Sources */}
-          {prep.sources.length > 0 && (
+          {shown.sources.length > 0 && (
             <section className="space-y-2 border-t pt-4" style={{ borderColor: BORDER }}>
               <span className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: ACCENT }}>Sources</span>
               <ul className="space-y-1">
-                {prep.sources.map((s, i) => (
+                {shown.sources.map((s, i) => (
                   <li key={i}>
                     <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-xs inline-flex items-start gap-1.5 hover:underline" style={{ color: INK }}>
                       <ExternalLink className="w-3 h-3 mt-0.5 shrink-0" style={{ color: ACCENT }} />
