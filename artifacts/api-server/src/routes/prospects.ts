@@ -8,6 +8,8 @@ import {
   draft,
   verifySections,
   sowEvidencePromptBlock,
+  estimateWealth,
+  assumptionsToQuestions,
   type Verification,
   type PrepPack,
   type ResearchDepth,
@@ -639,18 +641,61 @@ async function runPrepJob(
       return;
     }
 
+    // The model's own SoW questions — verified against the source. Estimate-
+    // derived questions are appended later and are NOT re-verified here (they're
+    // already independently validated by the wealth validator).
+    const originalQuestions = pack.sourceOfWealth.questions.slice();
+
     const sources = dedupeByUrl([
       ...research.passages.map((p) => ({ title: p.title, url: p.url })),
       ...webSources,
     ]);
 
-    // Reveal the read now, before the (non-blocking) verification pass runs.
+    // Reveal the read now, before the (non-blocking) estimate + verify run.
     const partial: PrepPack = { ...pack, sources, generatedAt: new Date().toISOString() };
     await updateJob(jobId, {
-      status: "verifying",
-      progress: 80,
-      stageDetail: "Verifying claims…",
+      status: "estimating",
+      progress: 62,
+      stageDetail: "Estimating net worth…",
       partial: partial as unknown as Record<string, unknown>,
+    });
+
+    // Net-worth estimate (Claude builds a grounded ledger; code computes ranges;
+    // OpenAI validates). Non-fatal — the pack still ships without it. Material
+    // assumptions become extra Source-of-Wealth questions for the banker.
+    let wealthEstimate: PrepPack["wealthEstimate"];
+    if (useCorpus) {
+      try {
+        wealthEstimate = await estimateWealth({
+          subject: prospect.name,
+          segment: prospect.segment ?? undefined,
+          notes,
+          corpusBlock,
+          sourceText: input,
+        });
+        if (wealthEstimate && !wealthEstimate.refused) {
+          const extra = assumptionsToQuestions(wealthEstimate);
+          const have = new Set(pack.sourceOfWealth.questions.map((q) => q.question.toLowerCase()));
+          for (const q of extra) {
+            if (!have.has(q.question.toLowerCase())) pack.sourceOfWealth.questions.push(q);
+          }
+        }
+      } catch (err) {
+        logger.warn({ err, jobId }, "Wealth estimate failed (non-fatal)");
+      }
+    }
+
+    const withEstimate: PrepPack = {
+      ...pack,
+      sources,
+      wealthEstimate,
+      generatedAt: new Date().toISOString(),
+    };
+    await updateJob(jobId, {
+      status: "verifying",
+      progress: 82,
+      stageDetail: "Verifying claims…",
+      partial: withEstimate as unknown as Record<string, unknown>,
     });
 
     let verification: Verification | undefined;
@@ -660,7 +705,7 @@ async function runPrepJob(
           [
             { key: "marketRead", text: pack.marketRead },
             { key: "coldCall", text: [pack.coldCall.opener, ...pack.coldCall.talkingPoints].join("\n") },
-            ...pack.sourceOfWealth.questions.map((q, i) => ({
+            ...originalQuestions.map((q, i) => ({
               key: `sow_answer_${i + 1}`,
               text: q.suggestedAnswer,
             })),
@@ -675,6 +720,7 @@ async function runPrepJob(
     const prep: PrepPack = {
       ...pack,
       sources,
+      wealthEstimate,
       verification,
       generatedAt: new Date().toISOString(),
     };

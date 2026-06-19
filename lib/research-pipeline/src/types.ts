@@ -118,6 +118,105 @@ export interface SowQuestion {
   expectedEvidence: string[];
 }
 
+// ----------------------------------------------------------------------------
+// Net-worth / Source-of-Wealth estimation engine
+//
+// The estimator (Claude) never emits a net-worth *number* as prose. It emits a
+// structured assumption LEDGER — every wealth-relevant quantity is a line with a
+// value, a basis tag, a source reference and a confidence. The dollar/pound
+// ranges are then computed deterministically IN CODE from that ledger, and an
+// independent model (OpenAI) checks each line. This is what makes the estimate
+// defensible enough for a banker to stake his name on.
+// ----------------------------------------------------------------------------
+
+export interface MoneyRange {
+  low: number;
+  base: number;
+  high: number;
+  /** ISO currency code, e.g. "GBP" | "USD". */
+  currency: string;
+}
+
+/** How grounded a single ledger line is. */
+export type AssumptionBasis =
+  | "from-source" // a figure stated in the research corpus (strongest)
+  | "benchmark-table" // a curated comp/industry benchmark (reusable prior)
+  | "benchmark-inferred" // a model-proposed band, citing a comparable
+  | "assumption"; // a modelling parameter (savings rate, return, tax)
+
+/** What a ledger line drives in the deterministic computation. */
+export type AssumptionCategory =
+  | "role_comp" // base + bonus for a role (income stream: annual × years)
+  | "carry_equity" // carried interest / equity / RSUs (income stream)
+  | "liquidity_event" // a one-off event: exit, IPO, sale (amount)
+  | "known_asset" // a held asset: property, shareholding (amount)
+  | "savings_rate" // fraction of after-tax income retained (rate)
+  | "investment_return" // annual real return compounding retained wealth (rate)
+  | "tax" // effective tax rate on income (rate)
+  | "illiquidity" // informational haircut note
+  | "other";
+
+export interface AssumptionLine {
+  id: string;
+  /** Human label: "Carry, managing partner, UK hedge fund, 2010–2020". */
+  label: string;
+  category: AssumptionCategory;
+  /** Income streams (role_comp / carry_equity): annual gross + tenure. */
+  annual?: MoneyRange;
+  years?: number;
+  /** Events / assets (liquidity_event / known_asset): a one-off amount. */
+  amount?: MoneyRange;
+  /** Whether an asset/event counts toward LIQUID net worth. */
+  liquid?: boolean;
+  /** Rate lines (savings_rate / investment_return / tax): a fraction 0..1. */
+  rate?: number;
+  basis: AssumptionBasis;
+  /** Passage index "[n]" / benchmark key / "" for pure assumptions. */
+  sourceRef: string;
+  confidence: Confidence;
+  /** The validator's note on this line, populated after validation. */
+  validatorNote?: string;
+}
+
+export type LineVerdict = "ok" | "weak" | "ungrounded" | "implausible";
+
+/** Independent (cross-model) check of the estimate's ledger. */
+export interface WealthValidation {
+  lineVerdicts: {
+    id: string;
+    verdict: LineVerdict;
+    note: string;
+    suggestedConfidence?: Confidence;
+  }[];
+  /** Aggregate flags. */
+  overConfident: boolean;
+  rangeAdvice: "ok" | "widen";
+  overallConfidence: Confidence;
+  /** Number of lines the validator could not stand behind. */
+  flaggedCount: number;
+  validatorModel: string;
+  validatedAt: string;
+}
+
+export interface WealthEstimate {
+  totalNetWorth: MoneyRange;
+  liquidNetWorth: MoneyRange;
+  /** One-line plain-English basis for the headline. */
+  headline: string;
+  assumptions: AssumptionLine[];
+  /** Deterministic roll-up of the ledger's confidence + basis mix. */
+  overallConfidence: Confidence;
+  estimatorModel: string;
+  validation?: WealthValidation;
+  /** True when evidence was too thin to estimate at all. */
+  refused?: boolean;
+  refusalReason?: string;
+  /** Presentation currency. */
+  currency: string;
+  asOf: string;
+  generatedAt: string;
+}
+
 export interface PrepPack {
   /** Our synthesised read of the prospect's likely wealth profile & trajectory. */
   marketRead: string;
@@ -128,6 +227,8 @@ export interface PrepPack {
     /** 5–6 well-formed questions with anticipated answers, modelled on PB practice. */
     questions: SowQuestion[];
   };
+  /** Defensible net-worth estimate with its assumption ledger (when researchable). */
+  wealthEstimate?: WealthEstimate;
   sources: { title: string; url: string }[];
   verification?: SourceOfWealthVerification;
   generatedAt: string;

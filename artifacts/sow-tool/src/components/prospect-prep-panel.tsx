@@ -11,7 +11,7 @@ import {
 
 type ResearchDepth = "quick" | "deep";
 
-type JobStatus = "queued" | "researching" | "drafting" | "verifying" | "done" | "failed";
+type JobStatus = "queued" | "researching" | "drafting" | "estimating" | "verifying" | "done" | "failed";
 
 interface JobView {
   id: string;
@@ -30,10 +30,11 @@ const isTerminal = (s: JobStatus | undefined): boolean => s === "done" || s === 
 const STAGES: { key: JobStatus; label: string }[] = [
   { key: "researching", label: "Searching sources" },
   { key: "drafting", label: "Drafting the read" },
+  { key: "estimating", label: "Estimating net worth" },
   { key: "verifying", label: "Verifying claims" },
 ];
 const STAGE_INDEX: Record<JobStatus, number> = {
-  queued: 0, researching: 0, drafting: 1, verifying: 2, done: 3, failed: 0,
+  queued: 0, researching: 0, drafting: 1, estimating: 2, verifying: 3, done: 4, failed: 0,
 };
 
 function formatElapsed(seconds: number): string {
@@ -82,6 +83,104 @@ const CONFIDENCE: Record<
   medium: { className: "bg-amber-50 border-amber-200 text-amber-900", icon: ShieldAlert, label: "Medium confidence — validate the flagged points with the client." },
   low: { className: "bg-red-50 border-red-200 text-red-900", icon: ShieldAlert, label: "Low confidence — several points could not be corroborated." },
 };
+
+// ── Net-worth estimate ──────────────────────────────────────────────────────
+function fmtMoney(n: number, currency: string): string {
+  const sym = currency === "GBP" ? "£" : currency === "USD" ? "$" : "";
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000_000) return `${sym}${(n / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}bn`;
+  if (abs >= 1_000_000) return `${sym}${Math.round(n / 1_000_000)}M`;
+  if (abs >= 1_000) return `${sym}${Math.round(n / 1_000)}k`;
+  return `${sym}${Math.round(n)}`;
+}
+function fmtRange(r: { low: number; high: number; currency: string }): string {
+  return `${fmtMoney(r.low, r.currency)} – ${fmtMoney(r.high, r.currency)}`;
+}
+
+const EST_CONFIDENCE: Record<"high" | "medium" | "low", { className: string; label: string }> = {
+  high: { className: "bg-emerald-50 border-emerald-200 text-emerald-800", label: "High confidence" },
+  medium: { className: "bg-amber-50 border-amber-200 text-amber-800", label: "Medium confidence" },
+  low: { className: "bg-red-50 border-red-200 text-red-800", label: "Low confidence" },
+};
+
+const BASIS_STYLE: Record<string, { label: string; className: string }> = {
+  "from-source": { label: "from source", className: "border-emerald-300 text-emerald-700" },
+  "benchmark-table": { label: "benchmark", className: "border-sky-300 text-sky-700" },
+  "benchmark-inferred": { label: "inferred", className: "border-amber-300 text-amber-700" },
+  assumption: { label: "assumption", className: "border-stone-300 text-stone-600" },
+};
+
+function WealthEstimatePanel({ estimate }: { estimate: NonNullable<PrepPack["wealthEstimate"]> }) {
+  if (estimate.refused) {
+    return (
+      <section className="border rounded p-5" style={{ borderColor: BORDER, background: "#FBFAF7" }}>
+        <Eyebrow>Estimated Net Worth</Eyebrow>
+        <p className="text-sm mt-3" style={{ color: "#4A4A4A" }}>
+          {estimate.refusalReason || "Insufficient public evidence to estimate — confirm career and assets directly with the client."}
+        </p>
+      </section>
+    );
+  }
+  const conf = EST_CONFIDENCE[estimate.overallConfidence];
+  const lineValue = (l: NonNullable<PrepPack["wealthEstimate"]>["assumptions"][number]): string => {
+    if (l.annual) return `${fmtRange(l.annual)}/yr × ${l.years ?? "?"}y`;
+    if (l.amount) return fmtRange(l.amount);
+    if (typeof l.rate === "number") return `${Math.round(l.rate * 100)}%`;
+    return "—";
+  };
+  return (
+    <section className="border rounded p-6 space-y-4" style={{ borderColor: BORDER, background: "#FBFAF7" }}>
+      <Eyebrow>Estimated Net Worth</Eyebrow>
+      <div className="space-y-1">
+        <p className="text-[34px] leading-none font-normal" style={{ fontFamily: SERIF, color: INK }}>
+          {fmtRange(estimate.totalNetWorth)}
+        </p>
+        <p className="text-sm" style={{ color: "#4A4A4A" }}>
+          Liquid {fmtRange(estimate.liquidNetWorth)}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`text-xs px-2 py-0.5 border rounded ${conf.className}`}>{conf.label}</span>
+        {estimate.validation && (
+          <span className="text-xs" style={{ color: "#7A7A6F" }}>
+            Independently checked by {estimate.validation.validatorModel}
+            {estimate.validation.flaggedCount > 0
+              ? ` · ${estimate.validation.flaggedCount} assumption${estimate.validation.flaggedCount === 1 ? "" : "s"} to confirm`
+              : " · all lines stood up"}
+          </span>
+        )}
+      </div>
+      {estimate.headline && (
+        <p className="text-[15px] leading-[1.55]" style={{ color: INK }}>{estimate.headline}</p>
+      )}
+      {estimate.assumptions.length > 0 && (
+        <details className="group">
+          <summary className="text-xs font-semibold uppercase tracking-[0.14em] cursor-pointer select-none" style={{ color: ACCENT }}>
+            How we got there — {estimate.assumptions.length} assumptions
+          </summary>
+          <ul className="mt-3 space-y-2">
+            {estimate.assumptions.map((l) => {
+              const bs = BASIS_STYLE[l.basis] ?? BASIS_STYLE.assumption;
+              return (
+                <li key={l.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm border-t pt-2" style={{ borderColor: BORDER }}>
+                  <span style={{ color: INK }}>{l.label}</span>
+                  <span className="tabular-nums" style={{ color: "#4A4A4A" }}>{lineValue(l)}</span>
+                  <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 border rounded ${bs.className}`}>{bs.label}</span>
+                  {l.validatorNote && (
+                    <span className="basis-full text-xs" style={{ color: "#9A7B00" }}>⚑ {l.validatorNote}</span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          <p className="mt-3 text-xs" style={{ color: "#7A7A6F" }}>
+            An estimate, not a fact — every line above is an assumption to confirm. The material ones appear as questions below.
+          </p>
+        </details>
+      )}
+    </section>
+  );
+}
 
 export function ProspectPrepPanel({
   prospectId,
@@ -313,6 +412,9 @@ export function ProspectPrepPanel({
 
       {shown && (
         <div className="space-y-10 pt-2">
+          {/* Net-worth estimate — the headline read */}
+          {shown.wealthEstimate && <WealthEstimatePanel estimate={shown.wealthEstimate} />}
+
           {/* Verification banner */}
           {shown.verification && (() => {
             const b = CONFIDENCE[shown.verification.overallConfidence];
