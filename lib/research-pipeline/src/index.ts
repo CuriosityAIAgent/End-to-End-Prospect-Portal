@@ -25,7 +25,10 @@ export {
   deepResearch,
   corpusToPromptBlock,
   DEFAULT_ANGLES,
+  QUICK_ANGLES,
   type DeepResearchOptions,
+  type DeepResearchProgress,
+  type ResearchDepth,
 } from "./research/deepResearch";
 export { DEEP_DIVE_SOURCES, domainsForAngle, type DeepDiveSource } from "./sources/deepDiveSources";
 

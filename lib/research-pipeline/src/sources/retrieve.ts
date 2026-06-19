@@ -20,6 +20,13 @@ export interface RetrieveOptions {
   limit?: number;
   /** Fetch full page markdown via Jina (slower, richer). Default true. */
   extract?: boolean;
+  /**
+   * Only fetch full-page markdown for the top N hits; the rest keep their
+   * (cheaper) SERP snippet. Page extraction is the dominant latency cost, so
+   * capping it well below `limit` trims wall-time with little quality loss.
+   * Defaults to `limit` (extract everything).
+   */
+  extractLimit?: number;
 }
 
 /** True when at least one search backend is provisioned. */
@@ -33,6 +40,7 @@ export async function retrieve(
 ): Promise<RetrievedPassage[]> {
   const limit = options.limit ?? 6;
   const extract = options.extract ?? true;
+  const extractLimit = options.extractLimit ?? limit;
 
   // Preferred path: DataForSEO for recall, Jina for clean extraction.
   if (dataForSeoConfigured()) {
@@ -45,12 +53,15 @@ export async function retrieve(
     }
     if (!extract || !jinaConfigured()) return hits;
 
-    const extracted = await mapLimit(hits, 4, (hit) =>
+    // Only deep-fetch the top `extractLimit` hits; lower-ranked hits keep their
+    // SERP snippet. Extraction is the slow part, so this caps the long tail.
+    const toExtract = hits.slice(0, extractLimit);
+    const extracted = await mapLimit(toExtract, 4, (hit) =>
       hit.url ? jinaRead(hit.url) : Promise.resolve(null),
     );
     // Prefer the full Jina extract; fall back to the SERP snippet where the
-    // page couldn't be fetched (paywall, timeout, etc.).
-    return hits.map((hit, i) => extracted[i] ?? hit);
+    // page couldn't be fetched (paywall, timeout, etc.) or wasn't extracted.
+    return hits.map((hit, i) => (i < extractLimit ? extracted[i] ?? hit : hit));
   }
 
   // Fallback: Jina search only.

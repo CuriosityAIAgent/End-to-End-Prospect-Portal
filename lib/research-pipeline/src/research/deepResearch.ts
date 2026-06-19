@@ -33,7 +33,7 @@ const ANGLE_KEYWORDS: Record<ResearchAngle, string> = {
   professional: "partner fund firm career biography profile",
 };
 
-// The default UHNW research set. Ordered roughly by signal value; the
+// The default (deep) UHNW research set. Ordered roughly by signal value; the
 // trust/foundation/offshore/property/litigation angles are where the public UK
 // registries (and what generic search misses) live.
 export const DEFAULT_ANGLES: ResearchAngle[] = [
@@ -48,6 +48,18 @@ export const DEFAULT_ANGLES: ResearchAngle[] = [
   "professional",
 ];
 
+// "Quick" set — a fast read for a cold call in five minutes. Highest-signal
+// angles only, no site-targeting, shallower extraction. "Deep" keeps the full
+// registry sweep above.
+export const QUICK_ANGLES: ResearchAngle[] = [
+  "wealth_profile",
+  "corporate",
+  "professional",
+  "deals",
+];
+
+export type ResearchDepth = "quick" | "deep";
+
 // Angles where site-targeting the authoritative registries materially helps.
 const SITE_TARGETED: ResearchAngle[] = [
   "corporate",
@@ -58,10 +70,10 @@ const SITE_TARGETED: ResearchAngle[] = [
   "wealth_profile",
 ];
 
-function anglesQueries(subject: string, angle: ResearchAngle): string[] {
+function anglesQueries(subject: string, angle: ResearchAngle, siteTargeted: boolean): string[] {
   const base = `${subject} ${ANGLE_KEYWORDS[angle]}`.trim();
   const queries = [base];
-  if (SITE_TARGETED.includes(angle)) {
+  if (siteTargeted && SITE_TARGETED.includes(angle)) {
     const domains = domainsForAngle(angle).slice(0, 4);
     if (domains.length) {
       queries.push(`${subject} ${domains.map((d) => `site:${d}`).join(" OR ")}`);
@@ -70,27 +82,43 @@ function anglesQueries(subject: string, angle: ResearchAngle): string[] {
   return queries;
 }
 
+/** Progress as retrieval waves complete — wired to the prep job's progress bar. */
+export interface DeepResearchProgress {
+  completed: number;
+  total: number;
+  detail: string;
+}
+
 export interface DeepResearchOptions {
   /** Disambiguating context (employer, role, segment, location). */
   context?: string;
-  /** Which angles to research. Defaults to the UHNW set. */
+  /** Which angles to research. Defaults to the set implied by `depth`. */
   angles?: ResearchAngle[];
-  /** Results pursued per query. */
+  /** "deep" (full registry sweep, default) or "quick" (fast cold-call read). */
+  depth?: ResearchDepth;
+  /** Results pursued per query. Defaults by depth. */
   perAngle?: number;
+  /** Full-page extracts per query. Defaults by depth (extraction is the slow part). */
+  extractLimit?: number;
+  /** Called as each retrieval completes, for the progress UI. */
+  onProgress?: (p: DeepResearchProgress) => void;
 }
 
 export async function deepResearch(
   subject: string,
   options: DeepResearchOptions = {},
 ): Promise<DeepResearchResult> {
-  const angles = options.angles ?? DEFAULT_ANGLES;
-  const perAngle = options.perAngle ?? 4;
+  const depth: ResearchDepth = options.depth ?? "deep";
+  const angles = options.angles ?? (depth === "quick" ? QUICK_ANGLES : DEFAULT_ANGLES);
+  const perAngle = options.perAngle ?? (depth === "quick" ? 3 : 4);
+  const extractLimit = options.extractLimit ?? (depth === "quick" ? 2 : 3);
+  const siteTargeted = depth === "deep";
   const ctx = options.context?.trim() ? ` ${options.context.trim()}` : "";
   const subjectCtx = `${subject}${ctx}`;
 
   const queries: { angle: ResearchAngle; query: string }[] = [];
   for (const angle of angles) {
-    for (const query of anglesQueries(subjectCtx, angle)) {
+    for (const query of anglesQueries(subjectCtx, angle, siteTargeted)) {
       queries.push({ angle, query });
     }
   }
@@ -98,8 +126,16 @@ export async function deepResearch(
   // Cap concurrent retrieves so one pass can't fire dozens of simultaneous
   // outbound requests (each retrieve also caps its own extraction concurrency).
   // 6-wide keeps the broader UK angle set from dragging out wall-clock time.
+  let completed = 0;
+  const total = queries.length;
   const results = await mapLimit(queries, 6, async ({ angle, query }) => {
-    const passages = await retrieve(query, { limit: perAngle });
+    const passages = await retrieve(query, { limit: perAngle, extractLimit });
+    completed += 1;
+    options.onProgress?.({
+      completed,
+      total,
+      detail: `Searched ${completed} of ${total} sources…`,
+    });
     return { angle, passages: passages.map((p) => ({ ...p, angle })) };
   });
 
