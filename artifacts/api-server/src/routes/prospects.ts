@@ -507,7 +507,7 @@ router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
       input,
       preferClaude: useCorpus,
       allowWebSearch: !useCorpus,
-      maxTokens: 3000,
+      maxTokens: 8000, // big nested JSON — avoid truncation
     });
 
     let pack: Pick<PrepPack, "marketRead" | "coldCall" | "sourceOfWealth">;
@@ -547,14 +547,20 @@ router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
             : [],
         },
       };
-    } catch {
-      req.log.error("Failed to parse prep JSON from model");
-      res.status(502).json({ error: "The prep pack could not be generated. Please try again." });
+    } catch (parseErr) {
+      req.log.error({ parseErr, sample: text.slice(0, 300) }, "Failed to parse prep JSON from model");
+      res.status(502).json({
+        error: "The prep pack could not be generated. Please try again.",
+        detail: `parse_failed len=${text.length} head=${JSON.stringify(text.slice(0, 200))} tail=${JSON.stringify(text.slice(-120))}`,
+      });
       return;
     }
 
     if (!pack.marketRead.trim() && pack.sourceOfWealth.questions.length === 0) {
-      res.status(502).json({ error: "The prep pack could not be generated. Please try again." });
+      res.status(502).json({
+        error: "The prep pack could not be generated. Please try again.",
+        detail: "empty_pack",
+      });
       return;
     }
 
@@ -599,7 +605,10 @@ router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
     res.json(GetProspectResponse.parse(serialize(row)));
   } catch (err) {
     req.log.error({ err }, "Prep generation failed");
-    res.status(502).json({ error: "The prep pack could not be generated. Please try again." });
+    res.status(502).json({
+      error: "The prep pack could not be generated. Please try again.",
+      detail: String(err instanceof Error ? err.message : err).slice(0, 300),
+    });
   }
 });
 
