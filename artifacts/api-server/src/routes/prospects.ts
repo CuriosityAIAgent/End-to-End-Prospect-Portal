@@ -10,7 +10,17 @@ import {
   sowEvidencePromptBlock,
   type Verification,
   type PrepPack,
+  type ResearchDepth,
 } from "@workspace/research-pipeline";
+import { logger } from "../lib/logger";
+import {
+  createJob,
+  findActiveJob,
+  latestJob,
+  schedule,
+  serializeJob,
+  updateJob,
+} from "../jobs/runner";
 import {
   CreateProspectBody,
   GetProspectParams,
@@ -449,12 +459,18 @@ router.post("/prospects/:id/convert", async (req, res): Promise<void> => {
 // (OpenAI), producing a cold-call script, the right Source-of-Wealth questions
 // WITH anticipated answers (modelled on private-bank practice), and a market
 // read. Persisted to prospect.data.prep (open jsonb) for the RM to validate.
+//
+// This is slow (research fan-out + two LLM passes), so it runs as a BACKGROUND
+// JOB: the POST enqueues and returns a jobId immediately; the client polls
+// GET /jobs/:id for staged progress and a partial reveal of the read.
 router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
   const params = GetProspectParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
+  const requestedDepth = (req.body as { depth?: unknown } | undefined)?.depth;
+  const depth: ResearchDepth = requestedDepth === "quick" ? "quick" : "deep";
 
   const [prospect] = await db
     .select()
@@ -466,14 +482,79 @@ router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
     return;
   }
 
-  const notes = bankerNotes(prospect.data ?? {});
+  // Idempotency: a double-click shouldn't spawn a second run.
+  const existing = await findActiveJob("prospect_prep", prospect.id);
+  if (existing) {
+    res.status(202).json({ jobId: existing.id });
+    return;
+  }
+
+  const job = await createJob("prospect_prep", prospect.id);
+  schedule(() => runPrepJob(job.id, prospect.id, depth));
+  res.status(202).json({ jobId: job.id });
+});
+
+// The latest prep job for a prospect — lets the screen reattach to a run in
+// progress after a refresh / navigation.
+router.get("/prospects/:id/jobs/latest", async (req, res): Promise<void> => {
+  const params = GetProspectParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const kind = typeof req.query.kind === "string" ? req.query.kind : "prospect_prep";
+  const job = await latestJob(kind, params.data.id);
+  res.json(job ? serializeJob(job) : null);
+});
+
+// The background worker. Mirrors the old synchronous pipeline but writes status,
+// progress and a partial result to the job row instead of an HTTP response.
+async function runPrepJob(
+  jobId: string,
+  prospectId: number,
+  depth: ResearchDepth,
+): Promise<void> {
+  const fail = async (error: string) => {
+    await updateJob(jobId, { status: "failed", error: error.slice(0, 300) });
+  };
 
   try {
+    await updateJob(jobId, {
+      status: "researching",
+      progress: 5,
+      startedAt: new Date(),
+      stageDetail: "Searching sources…",
+    });
+
+    const [prospect] = await db
+      .select()
+      .from(prospectsTable)
+      .where(eq(prospectsTable.id, prospectId));
+    if (!prospect) {
+      await fail("Prospect not found");
+      return;
+    }
+
+    const notes = bankerNotes(prospect.data ?? {});
     const research = retrievalConfigured()
-      ? await deepResearch(prospect.name, { context: researchContext(prospect) })
+      ? await deepResearch(prospect.name, {
+          context: researchContext(prospect),
+          depth,
+          onProgress: (p) => {
+            // Map research completion onto 5–45% of the overall bar.
+            const pct = 5 + Math.round((p.completed / Math.max(1, p.total)) * 40);
+            void updateJob(jobId, { progress: pct, stageDetail: p.detail });
+          },
+        })
       : { passages: [], anglesCovered: [] as string[] };
     const useCorpus = research.passages.length > 0;
     const corpusBlock = useCorpus ? corpusToPromptBlock(research.passages) : "";
+
+    await updateJob(jobId, {
+      status: "drafting",
+      progress: 50,
+      stageDetail: "Drafting the read…",
+    });
 
     const instructions = [
       "You are a senior private banker at JPMorgan preparing a relationship manager to approach a UHNW prospect. Produce a prep pack the RM can validate with the client. Never present anything as confirmed fact unless the SOURCE MATERIAL supports it; frame the rest as a likely picture to confirm.",
@@ -548,19 +629,13 @@ router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
         },
       };
     } catch (parseErr) {
-      req.log.error({ parseErr, sample: text.slice(0, 300) }, "Failed to parse prep JSON from model");
-      res.status(502).json({
-        error: "The prep pack could not be generated. Please try again.",
-        detail: `parse_failed len=${text.length} head=${JSON.stringify(text.slice(0, 200))} tail=${JSON.stringify(text.slice(-120))}`,
-      });
+      logger.error({ parseErr, jobId, sample: text.slice(0, 300) }, "Failed to parse prep JSON");
+      await fail(`parse_failed len=${text.length}`);
       return;
     }
 
     if (!pack.marketRead.trim() && pack.sourceOfWealth.questions.length === 0) {
-      res.status(502).json({
-        error: "The prep pack could not be generated. Please try again.",
-        detail: "empty_pack",
-      });
+      await fail("empty_pack");
       return;
     }
 
@@ -568,6 +643,15 @@ router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
       ...research.passages.map((p) => ({ title: p.title, url: p.url })),
       ...webSources,
     ]);
+
+    // Reveal the read now, before the (non-blocking) verification pass runs.
+    const partial: PrepPack = { ...pack, sources, generatedAt: new Date().toISOString() };
+    await updateJob(jobId, {
+      status: "verifying",
+      progress: 80,
+      stageDetail: "Verifying claims…",
+      partial: partial as unknown as Record<string, unknown>,
+    });
 
     let verification: Verification | undefined;
     if (useCorpus) {
@@ -584,7 +668,7 @@ router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
           input,
         );
       } catch (err) {
-        req.log.warn({ err }, "Prep verification failed (non-fatal)");
+        logger.warn({ err, jobId }, "Prep verification failed (non-fatal)");
       }
     }
 
@@ -596,20 +680,22 @@ router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
     };
 
     const prospectData = (prospect.data ?? {}) as Record<string, unknown>;
-    const [row] = await db
+    await db
       .update(prospectsTable)
       .set({ data: { ...prospectData, prep } })
-      .where(eq(prospectsTable.id, params.data.id))
-      .returning();
+      .where(eq(prospectsTable.id, prospectId));
 
-    res.json(GetProspectResponse.parse(serialize(row)));
-  } catch (err) {
-    req.log.error({ err }, "Prep generation failed");
-    res.status(502).json({
-      error: "The prep pack could not be generated. Please try again.",
-      detail: String(err instanceof Error ? err.message : err).slice(0, 300),
+    await updateJob(jobId, {
+      status: "done",
+      progress: 100,
+      stageDetail: "Done",
+      partial: prep as unknown as Record<string, unknown>,
+      result: prep as unknown as Record<string, unknown>,
     });
+  } catch (err) {
+    logger.error({ err, jobId }, "Prep job failed");
+    await fail(String(err instanceof Error ? err.message : err));
   }
-});
+}
 
 export default router;
