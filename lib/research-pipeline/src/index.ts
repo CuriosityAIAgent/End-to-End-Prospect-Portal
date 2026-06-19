@@ -38,3 +38,9 @@ export {
   sowEvidencePromptBlock,
   type SowCategoryReference,
 } from "./reference/sowEvidence";
+
+// Net-worth / Source-of-Wealth estimation engine
+export { estimateWealth, type EstimateWealthArgs } from "./estimate/wealthEstimate";
+export { computeEstimate, rollUpConfidence } from "./estimate/compute";
+export { assumptionsToQuestions } from "./estimate/assumptionQuestions";
+export { validateWealthEstimate } from "./verify/wealthEstimate";

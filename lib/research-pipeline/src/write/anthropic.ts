@@ -34,9 +34,11 @@ export async function writeWithClaude(args: {
   instructions: string;
   input: string;
   maxTokens?: number;
+  /** Override the writer model (e.g. escalate the wealth estimator to Opus). */
+  model?: string;
 }): Promise<string> {
   const message = await getClient().messages.create({
-    model: WRITER_MODEL,
+    model: args.model ?? WRITER_MODEL,
     max_tokens: args.maxTokens ?? 2000,
     system: args.instructions,
     messages: [{ role: "user", content: args.input }],
