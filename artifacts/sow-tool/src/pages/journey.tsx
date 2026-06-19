@@ -320,54 +320,10 @@ export default function Journey() {
         {/* Overview explainer video (hidden until a video is registered) */}
         <OverviewVideo />
 
-        {/* Stage rail */}
-        <section className="relative">
-          <div className="absolute top-6 left-0 w-full h-px bg-border z-0" />
-          <div className="relative z-10 grid grid-cols-5">
-            {JOURNEY_STAGES.map((stage) => {
-              const Icon = STAGE_ICONS[stage.id];
-              const count = counts[stage.id];
-              const active = count > 0;
-              const isFilter = filter === stage.id;
-              return (
-                <button
-                  key={stage.id}
-                  onClick={() => setFilter(isFilter ? "all" : stage.id)}
-                  className="flex flex-col items-center gap-3 bg-background px-2 group"
-                >
-                  <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-colors
-                      ${isFilter ? "border-primary bg-primary/20 text-primary" : active
-                        ? "border-primary/70 bg-primary/10 text-primary"
-                        : "border-border bg-secondary text-muted-foreground"} group-hover:border-primary`}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <div className="text-center">
-                    <div className="font-serif font-medium text-foreground">{stage.label}</div>
-                    <div className="text-xs text-muted-foreground">{count} active</div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Worklist */}
+        {/* Worklist — every relationship, simple list (no stage rail) */}
         <section className="space-y-5">
           <div className="flex items-center justify-between border-b border-border pb-4 gap-4 flex-wrap">
-            <h2 className="font-serif text-2xl">Next Actions</h2>
-            <div className="flex gap-2 flex-wrap">
-              <FilterChip label="All Stages" active={filter === "all"} onClick={() => setFilter("all")} />
-              {JOURNEY_STAGES.map((stage) => (
-                <FilterChip
-                  key={stage.id}
-                  label={stage.label}
-                  active={filter === stage.id}
-                  onClick={() => setFilter(stage.id)}
-                />
-              ))}
-            </div>
+            <h2 className="font-serif text-2xl">Relationships</h2>
           </div>
 
           {isLoading ? (
