@@ -22,26 +22,29 @@ import { mapLimit } from "../util/concurrency";
 
 // Keyword seeds that steer each angle's query.
 const ANGLE_KEYWORDS: Record<ResearchAngle, string> = {
-  wealth_profile: "net worth wealth estimated fortune source of wealth",
-  corporate: "director shareholder company officer beneficial owner",
+  wealth_profile: "net worth wealth estimated fortune source of wealth political donation",
+  corporate: "director shareholder company officer beneficial owner PSC",
   trusts_foundations: "foundation charitable trust trustee settlor",
   philanthropy: "donation philanthropy gift patron board",
   offshore: "offshore trust holding company structure beneficial owner",
-  property: "property estate real estate residence",
+  property: "property estate real estate residence land registry overseas entity",
   deals: "acquisition sale IPO exit funding round investment",
-  litigation: "lawsuit court judgment settlement probate",
+  litigation: "court judgment settlement divorce probate insolvency bankruptcy",
   professional: "partner fund firm career biography profile",
 };
 
 // The default UHNW research set. Ordered roughly by signal value; the
-// trust/foundation/offshore angles are the ones generic search misses.
+// trust/foundation/offshore/property/litigation angles are where the public UK
+// registries (and what generic search misses) live.
 export const DEFAULT_ANGLES: ResearchAngle[] = [
   "wealth_profile",
   "corporate",
   "trusts_foundations",
   "offshore",
+  "property",
   "philanthropy",
   "deals",
+  "litigation",
   "professional",
 ];
 
@@ -50,7 +53,9 @@ const SITE_TARGETED: ResearchAngle[] = [
   "corporate",
   "trusts_foundations",
   "offshore",
+  "property",
   "litigation",
+  "wealth_profile",
 ];
 
 function anglesQueries(subject: string, angle: ResearchAngle): string[] {
@@ -92,7 +97,8 @@ export async function deepResearch(
 
   // Cap concurrent retrieves so one pass can't fire dozens of simultaneous
   // outbound requests (each retrieve also caps its own extraction concurrency).
-  const results = await mapLimit(queries, 4, async ({ angle, query }) => {
+  // 6-wide keeps the broader UK angle set from dragging out wall-clock time.
+  const results = await mapLimit(queries, 6, async ({ angle, query }) => {
     const passages = await retrieve(query, { limit: perAngle });
     return { angle, passages: passages.map((p) => ({ ...p, angle })) };
   });

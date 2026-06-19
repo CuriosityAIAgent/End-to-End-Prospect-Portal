@@ -151,6 +151,93 @@ export const DEEP_DIVE_SOURCES: DeepDiveSource[] = [
     yields: "US litigation, judgments, probate — wealth events and red-flag signals.",
     api: { kind: "rest", note: "CourtListener API (free)." },
   },
+
+  // ── UK fine-tuning: high-signal UK public registries ───────────────────
+  // The UK exposes more beneficial-ownership and wealth data publicly than
+  // almost anywhere — these are the registries that move the needle here.
+  {
+    id: "companies-house-roe",
+    name: "Register of Overseas Entities (UK)",
+    domain: "find-and-update.company-information.service.gov.uk",
+    angle: "property",
+    region: "uk",
+    yields:
+      "Beneficial owners of overseas entities that own UK property — the offshore↔property bridge (post-2022 ROE). Often the only public link from a UK mansion to its real owner.",
+    api: { kind: "rest", note: "Companies House ROE data via the CH API." },
+  },
+  {
+    id: "registers-of-scotland",
+    name: "Registers of Scotland",
+    domain: "ros.gov.uk",
+    angle: "property",
+    region: "uk",
+    yields: "Scottish land & property ownership (Land Register of Scotland; ScotLIS).",
+  },
+  {
+    id: "fca-register",
+    name: "FCA Financial Services Register",
+    domain: "register.fca.org.uk",
+    angle: "corporate",
+    region: "uk",
+    yields:
+      "Regulated/approved individuals & firms and their controlled functions — confirms a finance career and which firms they ran or advised.",
+    api: { kind: "rest", note: "FCA Register API (free)." },
+  },
+  {
+    id: "charity-commission-ni",
+    name: "Charity Commission for Northern Ireland",
+    domain: "charitycommissionni.org.uk",
+    angle: "trusts_foundations",
+    region: "uk",
+    yields: "NI charities, trustees and accounts (the third UK charity regulator).",
+  },
+  {
+    id: "the-gazette",
+    name: "The Gazette (official UK public record)",
+    domain: "thegazette.co.uk",
+    angle: "litigation",
+    region: "uk",
+    yields:
+      "Official statutory notices: insolvencies, director appointments/disqualifications, deceased-estate (probate) notices, honours.",
+    api: { kind: "rest", note: "The Gazette API (free)." },
+  },
+  {
+    id: "insolvency-register",
+    name: "Individual Insolvency Register (UK)",
+    domain: "gov.uk",
+    angle: "litigation",
+    region: "uk",
+    yields: "Bankruptcies, IVAs, debt-relief orders — a material red-flag / source-of-funds signal.",
+    api: { kind: "rest", note: "Insolvency Service register search." },
+  },
+  {
+    id: "bailii",
+    name: "BAILII (UK & Irish case law)",
+    domain: "bailii.org",
+    angle: "litigation",
+    region: "uk",
+    yields:
+      "UK court judgments — commercial disputes, divorce/financial-remedy settlements, asset claims (wealth events + red flags).",
+  },
+  {
+    id: "find-a-will",
+    name: "Find a Will / Probate (England & Wales)",
+    domain: "probatesearch.service.gov.uk",
+    angle: "litigation",
+    region: "uk",
+    yields: "Grants of probate and estate values — inheritance as a quantified source of wealth.",
+    api: { kind: "rest", note: "HMCTS probate records search." },
+  },
+  {
+    id: "electoral-commission",
+    name: "Electoral Commission — political donations",
+    domain: "search.electoralcommission.org.uk",
+    angle: "wealth_profile",
+    region: "uk",
+    yields:
+      "Registered political donations — a public, quantified signal of deployable personal wealth and influence.",
+    api: { kind: "rest", note: "Electoral Commission data API (free)." },
+  },
 ];
 
 /** Domains to site-target for a given research angle. */
