@@ -20,12 +20,17 @@ function authHeaders(): Record<string, string> {
   return key ? { Authorization: `Bearer ${key}` } : {};
 }
 
+// Per-page extraction timeout. One slow page (a big registry PDF) shouldn't
+// drag a whole research wave, so this is deliberately tight; override with
+// JINA_READ_TIMEOUT_MS when richer-but-slower extraction is worth it.
+const JINA_READ_TIMEOUT_MS = Number(process.env.JINA_READ_TIMEOUT_MS) || 8_000;
+
 /** Fetch a single URL as clean markdown via r.jina.ai. */
 export async function jinaRead(url: string): Promise<RetrievedPassage | null> {
   try {
     const res = await fetch(`https://r.jina.ai/${url}`, {
       headers: { ...authHeaders(), "X-Return-Format": "markdown" },
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(JINA_READ_TIMEOUT_MS),
     });
     if (!res.ok) return null;
     const text = await res.text();
