@@ -42,13 +42,11 @@ export default function Prospect() {
 
   const updateProspect = useUpdateProspect();
   const deleteProspect = useDeleteProspect();
-  const generateBriefing = useGenerateProspectBriefing();
   const convertProspect = useConvertProspect();
 
   const [localData, setLocalData] = useState<Record<string, any>>({});
   const [localMeta, setLocalMeta] = useState({ status: "identified", segment: "", relationshipManager: "" });
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
-  const [briefingError, setBriefingError] = useState<string | null>(null);
 
   const initializedForId = useRef<number | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -122,18 +120,6 @@ export default function Prospect() {
     latestMeta.current = { ...latestMeta.current, [key]: value };
     setLocalMeta(latestMeta.current);
     scheduleSave();
-  };
-
-  const handleGenerate = () => {
-    setBriefingError(null);
-    generateBriefing.mutate({ id }, {
-      onSuccess: (updated) => {
-        queryClient.setQueryData(getGetProspectQueryKey(id), updated);
-        setLocalMeta((prev) => ({ ...prev, status: updated.status }));
-        queryClient.invalidateQueries({ queryKey: getListProspectsQueryKey() });
-      },
-      onError: () => setBriefingError("The briefing could not be generated. Please try again."),
-    });
   };
 
   const handleConvert = () => {
@@ -308,7 +294,8 @@ export default function Prospect() {
           </div>
         </div>
 
-        {/* Step 0 — Deep-research prep pack (name in → advisor-ready prep) */}
+        {/* The prep — one researched, verified output: the read, the approach
+            (cold-call + likely pushback), and the Source-of-Wealth questions. */}
         <ProspectPrepPanel
           prospectId={id}
           prospectName={prospect.name}
@@ -318,52 +305,13 @@ export default function Prospect() {
           onFieldChange={handleDataChange}
         />
 
-        {/* Step 1 — Cold call script */}
-        <ColdCallPanel
-          name={prospect.name}
-          rm={localMeta.relationshipManager}
-          data={localData}
-          onChange={handleDataChange}
-        />
-
-        {/* Step 2 — AI Briefing panel */}
-        <BriefingPanel
-          briefing={briefing}
-          isGenerating={generateBriefing.isPending}
-          onGenerate={handleGenerate}
-          error={briefingError}
-        />
-
-        {/* Step 3 — Meeting file note */}
+        {/* Meeting note — captured after the meeting; feeds the SoW file on convert. */}
         <FileNotePanel
           value={localData.fileNote}
           onChange={(v) => handleDataChange("fileNote", v)}
           contactName={prospect.name}
           defaultMeetingType="Prospect first meeting"
         />
-
-        {/* Questionnaire sections */}
-        <div className="flex flex-col gap-12">
-          {prospectingSections.map((section) => (
-            <Section key={section.id} title={section.title} icon={sectionIcon(section.id)} helpId={`prospect.${section.id}`}>
-              <p className="text-sm text-muted-foreground mb-6">{section.blurb}</p>
-              <div className="space-y-8">
-                {section.fields.map((field) => (
-                  <div key={field.id} className="space-y-2">
-                    <label className="text-sm font-semibold text-foreground/90">{field.label}</label>
-                    <p className="text-xs text-muted-foreground">{field.hint}</p>
-                    <Textarea
-                      value={localData[field.id] || ""}
-                      onChange={(e) => handleDataChange(field.id, e.target.value)}
-                      placeholder={field.placeholder}
-                      className="min-h-[90px] rounded-md border-border bg-card focus-visible:ring-primary"
-                    />
-                  </div>
-                ))}
-              </div>
-            </Section>
-          ))}
-        </div>
 
         {/* Convert */}
         <div className="print:hidden border-t border-border pt-8">
@@ -424,232 +372,6 @@ export default function Prospect() {
 
       </div>
     </Layout>
-  );
-}
-
-function ColdCallPanel({
-  name,
-  rm,
-  data,
-  onChange,
-}: {
-  name: string;
-  rm: string;
-  data: Record<string, any>;
-  onChange: (key: string, value: any) => void;
-}) {
-  // Replacer functions (not string replacements) so values containing `$`
-  // patterns like `$&` are inserted verbatim rather than interpreted.
-  const fillScript = (s: string) =>
-    s
-      .replace(/\[Name\]/g, () => name || "there")
-      .replace(/\[RM\]/g, () => rm || "your name");
-
-  return (
-    <div className="border border-primary/20 bg-card shadow-sm">
-      <div className="p-5 border-b border-border flex items-start gap-3 bg-primary/5">
-        <Phone className="w-5 h-5 text-primary mt-0.5" />
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="font-serif text-xl">Cold Call Script</h2>
-            <SectionInfo id="prospect.coldCall" />
-          </div>
-          <p className="text-sm text-muted-foreground max-w-xl">
-            Step one — the words to secure a meeting, organised around the four ways the call can land.
-          </p>
-        </div>
-      </div>
-
-      <div className="p-6 flex flex-col gap-8">
-        {/* Framing — objective + email reminder */}
-        <div className="space-y-3">
-          <p className="text-sm font-semibold text-foreground border-l-2 border-primary pl-3">
-            {coldCallObjective}
-          </p>
-          <p className="text-xs text-muted-foreground pl-3">{coldCallEmailReminder}</p>
-        </div>
-
-        {/* The four scenarios */}
-        <div className="flex flex-col gap-6">
-          {coldCallScenarios.map((scenario, i) => (
-            <div key={scenario.id} className="border border-border bg-background/40">
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-primary/5">
-                <span className="flex-shrink-0 w-7 h-7 rounded-full border border-primary/30 text-primary flex items-center justify-center font-serif text-sm">
-                  {i + 1}
-                </span>
-                <h3 className="font-serif text-lg">{scenario.title}</h3>
-              </div>
-              <div className="p-4 flex flex-col gap-4">
-                {scenario.lines.map((line, j) => (
-                  <div key={j} className="space-y-1.5">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-primary/80">
-                      {line.subLabel}
-                    </p>
-                    <p className="text-[15px] font-serif italic leading-relaxed text-foreground border-l-2 border-primary/30 pl-3">
-                      “{fillScript(line.script)}”
-                    </p>
-                    <p className="text-xs text-muted-foreground">{line.guidance}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Delivery notes */}
-        <div className="border border-dashed border-border bg-muted/30 p-4 space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-foreground/70">
-            Delivery notes
-          </p>
-          <ul className="list-disc pl-5 space-y-1.5">
-            {coldCallDeliveryNotes.map((note, i) => (
-              <li key={i} className="text-xs text-muted-foreground leading-relaxed">
-                {note}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Log the call outcome */}
-        <div className="border-t border-border pt-6 space-y-6">
-          {coldCallCapture.map((field) => (
-            <div key={field.id} className="space-y-2">
-              <label className="text-sm font-semibold text-foreground/90">{field.label}</label>
-              <p className="text-xs text-muted-foreground">{field.hint}</p>
-              <Textarea
-                value={data[field.id] || ""}
-                onChange={(e) => onChange(field.id, e.target.value)}
-                placeholder={field.placeholder}
-                className="min-h-[70px] rounded-md border-border bg-card focus-visible:ring-primary"
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BriefingPanel({
-  briefing,
-  isGenerating,
-  onGenerate,
-  error,
-}: {
-  briefing: import("@workspace/api-client-react").Briefing | null | undefined;
-  isGenerating: boolean;
-  onGenerate: () => void;
-  error: string | null;
-}) {
-  return (
-    <div className="border border-primary/20 bg-card shadow-sm">
-      <div className="p-5 border-b border-border flex flex-col md:flex-row md:items-center justify-between gap-4 bg-primary/5">
-        <div className="flex items-start gap-3">
-          <Sparkles className="w-5 h-5 text-primary mt-0.5" />
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-serif text-xl">Pre-Meeting Briefing</h2>
-              <SectionInfo id="prospect.briefing" />
-            </div>
-            <p className="text-sm text-muted-foreground max-w-xl">
-              An AI-written briefing backed by a live internet search, combined with your captured notes. Verify all facts before relying on them.
-            </p>
-          </div>
-        </div>
-        <Button onClick={onGenerate} disabled={isGenerating} className="rounded-md bg-primary text-primary-foreground shrink-0 print:hidden">
-          {isGenerating ? (
-            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Researching...</>
-          ) : (
-            <><Sparkles className="w-4 h-4 mr-2" /> {briefing ? "Regenerate" : "Generate Briefing"}</>
-          )}
-        </Button>
-      </div>
-
-      <div className="p-6">
-        {error && (
-          <div className="flex items-center gap-2 text-sm text-destructive mb-4">
-            <AlertCircle className="w-4 h-4" /> {error}
-          </div>
-        )}
-
-        {isGenerating && !briefing ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-            <Loader2 className="w-8 h-8 animate-spin mb-3 text-primary" />
-            <p className="text-sm">Searching the web and drafting the briefing — this can take up to a minute.</p>
-          </div>
-        ) : !briefing ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Compass className="w-10 h-10 text-muted mb-3" />
-            <p className="text-sm text-muted-foreground max-w-sm">
-              No briefing yet. Generate one to get a research-backed summary, talking points, likely referral routes and a recommended approach.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-8">
-            <div>
-              <h3 className="font-serif text-lg mb-2">Summary</h3>
-              <p className="text-sm leading-relaxed whitespace-pre-line text-foreground/90">{briefing.summary}</p>
-            </div>
-
-            {briefing.talkingPoints?.length > 0 && (
-              <div>
-                <h3 className="font-serif text-lg mb-3 flex items-center gap-2"><Lightbulb className="w-4 h-4 text-primary" /> Talking Points</h3>
-                <ul className="space-y-2">
-                  {briefing.talkingPoints.map((tp, i) => (
-                    <li key={i} className="text-sm flex gap-3">
-                      <span className="text-primary font-serif">{i + 1}.</span>
-                      <span className="text-foreground/90">{tp}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {briefing.referralRoutes?.length > 0 && (
-              <div>
-                <h3 className="font-serif text-lg mb-3 flex items-center gap-2"><RouteIcon className="w-4 h-4 text-primary" /> Likely Referral Routes</h3>
-                <ul className="space-y-2">
-                  {briefing.referralRoutes.map((rr, i) => (
-                    <li key={i} className="text-sm flex gap-3">
-                      <span className="text-primary">•</span>
-                      <span className="text-foreground/90">{rr}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {briefing.recommendedApproach && (
-              <div>
-                <h3 className="font-serif text-lg mb-2">Recommended Approach</h3>
-                <p className="text-sm leading-relaxed whitespace-pre-line text-foreground/90">{briefing.recommendedApproach}</p>
-              </div>
-            )}
-
-            {briefing.sources?.length > 0 && (
-              <div className="border-t border-border pt-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Sources</h3>
-                <ul className="space-y-1">
-                  {briefing.sources.map((s, i) => (
-                    <li key={i} className="text-sm">
-                      <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1 break-all">
-                        <ExternalLink className="w-3 h-3 shrink-0" /> {s.title || s.url}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {briefing.generatedAt && (
-              <p className="text-xs text-muted-foreground">
-                Generated {new Date(briefing.generatedAt).toLocaleString()}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 

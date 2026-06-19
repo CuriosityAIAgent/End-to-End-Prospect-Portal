@@ -19,15 +19,6 @@ export const meetingTypes = [
   "Internal",
 ] as const;
 
-// Selecting one of these means "nothing to record" for a dimension — the
-// detail textarea stays hidden and the topic is excluded from the AI enhance
-// pass.
-export const NULL_VALUES = ["Not discussed", "None identified", "None mentioned"];
-
-export function isCovered(value: string | undefined): boolean {
-  return !!value && !NULL_VALUES.includes(value);
-}
-
 export interface CoverageOption {
   value: string;
   label: string;
@@ -50,6 +41,7 @@ export interface CoverageDimension {
   icon: LucideIcon;
   accent: CoverageAccent;
   hint: string;
+  /** Checkbox options — the banker ticks any that apply (multi-select). */
   options: CoverageOption[];
 }
 
@@ -66,13 +58,11 @@ export const coverageDimensions: CoverageDimension[] = [
     },
     hint: "Long-horizon planning — estate, succession, tax and philanthropy.",
     options: [
-      { value: "Not discussed", label: "Not discussed" },
-      { value: "Briefly mentioned", label: "Briefly mentioned" },
-      { value: "Key focus — estate planning", label: "Estate planning" },
-      { value: "Key focus — succession planning", label: "Succession planning" },
-      { value: "Key focus — tax planning", label: "Tax planning" },
-      { value: "Key focus — philanthropy", label: "Philanthropy" },
-      { value: "Key focus — trust structures", label: "Trust structures" },
+      { value: "Estate planning", label: "Estate planning" },
+      { value: "Succession planning", label: "Succession planning" },
+      { value: "Tax planning", label: "Tax planning" },
+      { value: "Philanthropy", label: "Philanthropy" },
+      { value: "Trust structures", label: "Trust structures" },
     ],
   },
   {
@@ -87,13 +77,12 @@ export const coverageDimensions: CoverageDimension[] = [
     },
     hint: "Portfolio strategy — allocation, risk profile and performance.",
     options: [
-      { value: "Not discussed", label: "Not discussed" },
       { value: "Portfolio review", label: "Portfolio review" },
-      { value: "Risk profiling / tolerance review", label: "Risk profiling" },
-      { value: "Asset allocation review", label: "Asset allocation review" },
-      { value: "New investment ideas presented", label: "New investment ideas" },
+      { value: "Risk profiling", label: "Risk profiling" },
+      { value: "Asset allocation", label: "Asset allocation" },
+      { value: "New investment ideas", label: "New investment ideas" },
       { value: "Performance discussion", label: "Performance discussion" },
-      { value: "Discretionary mandate discussion", label: "Discretionary mandate" },
+      { value: "Discretionary mandate", label: "Discretionary mandate" },
     ],
   },
   {
@@ -108,7 +97,6 @@ export const coverageDimensions: CoverageDimension[] = [
     },
     hint: "Execution appetite across asset classes and instruments.",
     options: [
-      { value: "Not discussed", label: "Not discussed" },
       { value: "Equities", label: "Equities" },
       { value: "Fixed income / bonds", label: "Fixed income / bonds" },
       { value: "FX / currency", label: "FX / currency" },
@@ -128,12 +116,11 @@ export const coverageDimensions: CoverageDimension[] = [
     },
     hint: "Everyday and structured banking — credit, cash and property finance.",
     options: [
-      { value: "Not discussed", label: "Not discussed" },
-      { value: "Credit & lending facilities", label: "Credit & lending" },
-      { value: "Cash management & deposits", label: "Cash management" },
+      { value: "Credit & lending", label: "Credit & lending" },
+      { value: "Cash management", label: "Cash management" },
       { value: "Mortgage / property finance", label: "Mortgage / property finance" },
       { value: "Trade finance", label: "Trade finance" },
-      { value: "International banking needs", label: "International banking" },
+      { value: "International banking", label: "International banking" },
     ],
   },
   {
@@ -148,9 +135,8 @@ export const coverageDimensions: CoverageDimension[] = [
     },
     hint: "Downside cover for the client, family and business interests.",
     options: [
-      { value: "Not discussed", label: "Not discussed" },
       { value: "Life cover", label: "Life cover" },
-      { value: "Critical illness cover", label: "Critical illness" },
+      { value: "Critical illness", label: "Critical illness" },
       { value: "Wealth / asset protection", label: "Wealth / asset protection" },
       { value: "Business protection", label: "Business protection" },
       { value: "Income protection", label: "Income protection" },
@@ -168,14 +154,13 @@ export const coverageDimensions: CoverageDimension[] = [
     },
     hint: "Liquidity and planning triggers on the horizon.",
     options: [
-      { value: "None identified", label: "None identified" },
       { value: "Business sale / exit", label: "Business sale / exit" },
-      { value: "Inheritance received or anticipated", label: "Inheritance" },
-      { value: "Approaching / recent retirement", label: "Retirement" },
-      { value: "Property purchase or sale", label: "Property transaction" },
+      { value: "Inheritance", label: "Inheritance" },
+      { value: "Retirement", label: "Retirement" },
+      { value: "Property transaction", label: "Property transaction" },
       { value: "Divorce / separation", label: "Divorce / separation" },
       { value: "Family expansion", label: "Family expansion" },
-      { value: "Relocation / change of domicile", label: "Relocation / domicile change" },
+      { value: "Relocation / domicile change", label: "Relocation / domicile change" },
     ],
   },
   {
@@ -194,7 +179,7 @@ export const coverageDimensions: CoverageDimension[] = [
       { value: "Positive", label: "Positive" },
       { value: "Neutral", label: "Neutral" },
       { value: "Some concerns raised", label: "Some concerns raised" },
-      { value: "At risk — requires attention", label: "At risk" },
+      { value: "At risk", label: "At risk" },
     ],
   },
   {
@@ -209,17 +194,18 @@ export const coverageDimensions: CoverageDimension[] = [
     },
     hint: "Signals a competitor or adviser may be circling.",
     options: [
-      { value: "None mentioned", label: "None mentioned" },
-      { value: "Another bank or institution mentioned", label: "Competitor bank mentioned" },
-      { value: "Adviser or intermediary change planned", label: "Adviser change planned" },
-      { value: "Pricing or fee sensitivity raised", label: "Pricing sensitivity" },
-      { value: "Dissatisfaction with current service", label: "Service dissatisfaction" },
+      { value: "Competitor bank mentioned", label: "Competitor bank mentioned" },
+      { value: "Adviser change planned", label: "Adviser change planned" },
+      { value: "Pricing sensitivity", label: "Pricing sensitivity" },
+      { value: "Service dissatisfaction", label: "Service dissatisfaction" },
     ],
   },
 ];
 
+// One coverage dimension: any number of ticked options, plus optional free text.
+// "Not discussed" = nothing ticked and no note — no special sentinel value.
 export interface CoverageEntry {
-  value: string;
+  values: string[];
   detail?: string;
 }
 
@@ -230,12 +216,16 @@ export interface FileNoteData {
   coverage?: Record<string, CoverageEntry>;
 }
 
+/** A dimension counts as covered once the banker ticks anything or writes a note. */
+export function isCovered(entry: CoverageEntry | undefined): boolean {
+  if (!entry) return false;
+  return (entry.values?.length ?? 0) > 0 || !!entry.detail?.trim();
+}
+
 /**
- * The discussion dimensions the banker explicitly engaged with AND whose value
- * is non-null. Shared by the file-note enhance pass and the Source of Wealth
- * draft: sending an untouched default (e.g. Relationship Temperature's "Strong
- * and growing") would feed the model an unconfirmed "fact" it could weave in as
- * if confirmed.
+ * The dimensions the banker actually engaged with — fed to the file-note enhance
+ * pass and the Source of Wealth draft. Nothing ticked and no note ⇒ excluded, so
+ * the model never treats an untouched dimension as a confirmed fact.
  */
 export function engagedCoverage(
   coverage: Record<string, CoverageEntry> | undefined,
@@ -243,6 +233,12 @@ export function engagedCoverage(
   if (!coverage) return [];
   return coverageDimensions
     .map((dim) => ({ dim, entry: coverage[dim.id] }))
-    .filter(({ entry }) => !!entry && isCovered(entry.value))
-    .map(({ dim, entry }) => ({ label: dim.label, value: entry!.value, detail: entry!.detail }));
+    .filter(({ entry }) => isCovered(entry))
+    .map(({ dim, entry }) => {
+      const values = entry!.values ?? [];
+      const detail = entry!.detail?.trim() || undefined;
+      // If only free text was given, surface it as the value.
+      if (values.length === 0) return { label: dim.label, value: detail ?? "" };
+      return { label: dim.label, value: values.join(", "), detail };
+    });
 }

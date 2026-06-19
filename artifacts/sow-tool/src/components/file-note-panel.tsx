@@ -70,10 +70,7 @@ export function FileNotePanel({
 
   const words = countWords(effective.note);
   const hasNote = effective.note.trim().length > 0;
-  const hasCoverage = coverageDimensions.some((dim) => {
-    const entry = effective.coverage[dim.id];
-    return !!entry && isCovered(entry.value);
-  });
+  const hasCoverage = coverageDimensions.some((dim) => isCovered(effective.coverage[dim.id]));
 
   const patch = (p: Partial<FileNoteData>) => {
     onChange({ ...effective, ...p });
@@ -81,6 +78,20 @@ export function FileNotePanel({
 
   const setCoverage = (id: string, entry: CoverageEntry) => {
     patch({ coverage: { ...effective.coverage, [id]: entry } });
+  };
+
+  // Toggle one checkbox option on a dimension (multi-select).
+  const toggleValue = (id: string, optionValue: string) => {
+    const entry = effective.coverage[id] ?? { values: [] };
+    const values = entry.values.includes(optionValue)
+      ? entry.values.filter((v) => v !== optionValue)
+      : [...entry.values, optionValue];
+    setCoverage(id, { ...entry, values });
+  };
+
+  const setDetail = (id: string, detail: string) => {
+    const entry = effective.coverage[id] ?? { values: [] };
+    setCoverage(id, { ...entry, detail });
   };
 
   const appendTranscript = (text: string) => {
@@ -169,7 +180,7 @@ export function FileNotePanel({
 
   const coveredForPrint = coverageDimensions
     .map((dim) => ({ dim, entry: effective.coverage[dim.id] }))
-    .filter(({ dim, entry }) => isCovered(entry?.value ?? dim.options[0].value) && !!entry);
+    .filter(({ entry }) => isCovered(entry));
 
   return (
     <div className="border border-primary/20 bg-card shadow-sm">
@@ -335,59 +346,64 @@ export function FileNotePanel({
             <h3 className="font-serif text-lg">Discussion coverage</h3>
           </div>
           <p className="text-sm text-muted-foreground mb-5 print:hidden">
-            A prompt for what a complete meeting touches. Mark what you covered — then enhance the draft so
+            Tick anything that came up — pick as many as apply, or just write it. Then enhance the draft so
             nothing falls through the cracks.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:hidden">
             {coverageDimensions.map((dim) => {
               const entry = effective.coverage[dim.id];
-              const selected = entry?.value ?? dim.options[0].value;
-              const covered = isCovered(selected);
-              const showDetail = covered && !!entry;
+              const values = entry?.values ?? [];
+              const covered = isCovered(entry);
               const Icon = dim.icon;
               return (
                 <div
                   key={dim.id}
-                  className={cn(
-                    "border border-border bg-background flex overflow-hidden transition-colors",
-                    showDetail && "border-l-0",
-                  )}
+                  className="border border-border bg-background flex overflow-hidden transition-colors"
                 >
-                  <div className={cn("w-1 shrink-0", showDetail ? dim.accent.bar : "bg-transparent")} />
-                  <div className="flex-1 p-4 space-y-2.5">
+                  <div className={cn("w-1 shrink-0", covered ? dim.accent.bar : "bg-transparent")} />
+                  <div className="flex-1 p-4 space-y-3">
                     <div className="flex items-center gap-2">
                       <span className={cn("inline-flex items-center justify-center w-7 h-7 border", dim.accent.chip)}>
                         <Icon className={cn("w-4 h-4", dim.accent.icon)} />
                       </span>
-                      <div>
-                        <p className="text-sm font-semibold leading-tight">{dim.label}</p>
-                      </div>
+                      <p className="text-sm font-semibold leading-tight">{dim.label}</p>
                     </div>
                     <p className="text-xs text-muted-foreground">{dim.hint}</p>
-                    <Select
-                      value={selected}
-                      onValueChange={(v) =>
-                        setCoverage(dim.id, { value: v, detail: isCovered(v) ? entry?.detail ?? "" : "" })
-                      }
-                    >
-                      <SelectTrigger className="h-9 rounded-md border-border bg-card text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-md">
-                        {dim.options.map((o) => (
-                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {showDetail && (
-                      <Textarea
-                        value={entry?.detail ?? ""}
-                        onChange={(e) => setCoverage(dim.id, { value: selected, detail: e.target.value })}
-                        placeholder="Add further detail…"
-                        className="min-h-[64px] rounded-md border-border bg-card text-sm focus-visible:ring-primary"
-                      />
-                    )}
+                    <div className="flex flex-wrap gap-1.5">
+                      {dim.options.map((o) => {
+                        const on = values.includes(o.value);
+                        return (
+                          <button
+                            key={o.value}
+                            type="button"
+                            onClick={() => toggleValue(dim.id, o.value)}
+                            className={cn(
+                              "inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors",
+                              on
+                                ? cn(dim.accent.chip, "font-medium")
+                                : "border-border bg-card text-muted-foreground hover:border-primary/40",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center shrink-0",
+                                on ? "border-current" : "border-muted-foreground/40",
+                              )}
+                            >
+                              {on && <Check className="w-2.5 h-2.5" />}
+                            </span>
+                            {o.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <Textarea
+                      value={entry?.detail ?? ""}
+                      onChange={(e) => setDetail(dim.id, e.target.value)}
+                      placeholder="Or just write it…"
+                      className="min-h-[44px] rounded-md border-border bg-card text-sm focus-visible:ring-primary"
+                    />
                   </div>
                 </div>
               );
@@ -402,8 +418,8 @@ export function FileNotePanel({
               <ul className="space-y-1 text-sm">
                 {coveredForPrint.map(({ dim, entry }) => (
                   <li key={dim.id}>
-                    <strong>{dim.label}:</strong> {entry?.value}
-                    {entry?.detail ? ` — ${entry.detail}` : ""}
+                    <strong>{dim.label}:</strong> {(entry?.values ?? []).join(", ")}
+                    {entry?.detail ? `${entry?.values?.length ? " — " : ""}${entry.detail}` : ""}
                   </li>
                 ))}
               </ul>
