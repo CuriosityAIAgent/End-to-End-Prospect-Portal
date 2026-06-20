@@ -94,10 +94,29 @@ export function computeEstimate(lines: AssumptionLine[], currency: string): Comp
     }
   }
 
-  // Accumulated financial wealth is liquid by nature; assets/events add per flag.
-  const totalLow = accLow + evLow;
-  const totalBase = accBase + evBase;
-  const totalHigh = accHigh + evHigh;
+  // Top-down anchor: when the corpus reports a credible TOTAL net-worth figure,
+  // that already includes the operating-company stake and the wealth the
+  // accumulated comp built — so we anchor total on the reported figure(s) rather
+  // than summing the components (which would double-count the same wealth).
+  // Liquid is still built bottom-up from demonstrably-liquid wealth.
+  const reported = lines.filter((l) => l.category === "reported_net_worth" && l.amount);
+
+  let totalLow: number;
+  let totalBase: number;
+  let totalHigh: number;
+  if (reported.length > 0) {
+    totalLow = Math.min(...reported.map((l) => l.amount!.low));
+    totalHigh = Math.max(...reported.map((l) => l.amount!.high));
+    totalBase = reported.reduce((s, l) => s + l.amount!.base, 0) / reported.length;
+  } else {
+    // No reported figure — build bottom-up: accumulated comp + events + assets.
+    totalLow = accLow + evLow;
+    totalBase = accBase + evBase;
+    totalHigh = accHigh + evHigh;
+  }
+  // Liquid is always bottom-up: accumulated financial wealth (liquid by nature)
+  // plus only the assets/events explicitly flagged liquid — never the reported
+  // total (which bundles the illiquid operating stake).
   const liquidLow = accLow + liqEvLow;
   const liquidBase = accBase + liqEvBase;
   const liquidHigh = accHigh + liqEvHigh;
