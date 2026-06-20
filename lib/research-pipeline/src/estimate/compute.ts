@@ -94,11 +94,13 @@ export function computeEstimate(lines: AssumptionLine[], currency: string): Comp
     }
   }
 
-  // Top-down anchor: when the corpus reports a credible TOTAL net-worth figure,
-  // that already includes the operating-company stake and the wealth the
-  // accumulated comp built — so we anchor total on the reported figure(s) rather
-  // than summing the components (which would double-count the same wealth).
-  // Liquid is still built bottom-up from demonstrably-liquid wealth.
+  // Top-down anchor: a credible reported TOTAL net-worth figure (a rich-list
+  // valuation) is a current, comprehensive snapshot — it already subsumes the
+  // operating-company stake, held assets and the wealth the accumulated comp
+  // built. So when one is present we DELIBERATELY anchor total on it rather than
+  // summing the components, which would double-count the same wealth (the bug
+  // this guards against). The component lines instead inform the LIQUID estimate.
+  // With no reported figure we build the total bottom-up from the components.
   const reported = lines.filter((l) => l.category === "reported_net_worth" && l.amount);
 
   let totalLow: number;
@@ -136,10 +138,12 @@ export function computeEstimate(lines: AssumptionLine[], currency: string): Comp
     high: floor0(round2sig(totalHigh * widen)),
     currency,
   };
+  // Liquid net worth is a subset of total — cap every component at the total so
+  // an anchored (top-down) total can never be exceeded by bottom-up liquid.
   const liquid: MoneyRange = {
-    low: floor0(round2sig(liquidLow / widen)),
-    base: floor0(round2sig(liquidBase)),
-    high: floor0(round2sig(Math.min(liquidHigh * widen, total.high))),
+    low: Math.min(floor0(round2sig(liquidLow / widen)), total.low),
+    base: Math.min(floor0(round2sig(liquidBase)), total.base),
+    high: Math.min(floor0(round2sig(liquidHigh * widen)), total.high),
     currency,
   };
 

@@ -47,7 +47,7 @@ const ESTIMATOR_INSTRUCTIONS = [
   "If there is genuinely no anchor — no role/tenure AND no stated asset or wealth figure — set refused=true with a one-line refusalReason rather than inventing an estimate. Otherwise estimate, using wide ranges and low confidence when evidence is thin.",
   "",
   "Return ONLY JSON (no markdown):",
-  '{ "refused": false, "refusalReason": "", "currency": "GBP", "headline": "…", "assumptions": [ { "id":"a1", "label":"Reported net worth (rich-list)", "category":"reported_net_worth", "amount":{"low":6000000000,"base":7000000000,"high":9000000000}, "basis":"from-source", "sourceRef":"[1]", "confidence":"medium" }, { "id": "a2", "label": "Base+bonus, MD at <firm>, 2012–2024", "category": "role_comp", "annual": {"low":800000,"base":1200000,"high":1800000}, "years": 12, "basis": "benchmark-inferred", "sourceRef": "[3]", "confidence": "medium" }, { "id":"a2", "label":"Effective tax rate", "category":"tax", "rate":0.45, "basis":"assumption", "sourceRef":"", "confidence":"high" }, { "id":"a3", "label":"2019 sale of stake in <co>", "category":"liquidity_event", "amount":{"low":30000000,"base":40000000,"high":50000000}, "liquid":true, "basis":"from-source", "sourceRef":"[5]", "confidence":"high" } ] }',
+  '{ "refused": false, "refusalReason": "", "currency": "GBP", "headline": "…", "assumptions": [ { "id":"a1", "label":"Reported net worth (rich-list)", "category":"reported_net_worth", "amount":{"low":6000000000,"base":7000000000,"high":9000000000}, "basis":"from-source", "sourceRef":"[1]", "confidence":"medium" }, { "id": "a2", "label": "Base+bonus, MD at <firm>, 2012–2024", "category": "role_comp", "annual": {"low":800000,"base":1200000,"high":1800000}, "years": 12, "basis": "benchmark-inferred", "sourceRef": "[3]", "confidence": "medium" }, { "id":"a3", "label":"Effective tax rate", "category":"tax", "rate":0.45, "basis":"assumption", "sourceRef":"", "confidence":"high" }, { "id":"a4", "label":"2019 sale of stake in <co>", "category":"liquidity_event", "amount":{"low":30000000,"base":40000000,"high":50000000}, "liquid":true, "basis":"from-source", "sourceRef":"[5]", "confidence":"high" } ] }. Give every assumption a UNIQUE id.',
 ].join("\n");
 
 function chooseComplex(corpusBlock: string, notes: string): boolean {
@@ -123,6 +123,19 @@ function parseLedger(text: string): DraftedLedger | null {
         }))
         .filter((l) => l.label.trim().length > 0)
     : [];
+
+  // Guarantee unique line ids: the validator keys verdicts by id in a Map, so a
+  // duplicate id (even if the model emits one) would silently overwrite a line's
+  // verdict. Suffix collisions.
+  const seenIds = new Set<string>();
+  for (const l of lines) {
+    let id = l.id;
+    let n = 2;
+    while (seenIds.has(id)) id = `${l.id}-${n++}`;
+    l.id = id;
+    seenIds.add(id);
+  }
+
   return {
     refused: raw.refused === true,
     refusalReason: typeof raw.refusalReason === "string" ? raw.refusalReason : "",
