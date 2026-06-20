@@ -303,6 +303,18 @@ export default function Prospect() {
           industry={localData.industry as string | undefined}
           knownInfo={localData.knownInfo as string | undefined}
           onFieldChange={handleDataChange}
+          onApproachCopy={(channel, variantId, label) => {
+            // Lightweight learning: append which outreach variant the RM copies.
+            // Read the live ref (not render-captured localData) so two quick
+            // copies don't clobber each other.
+            const log = Array.isArray(latestData.current.approachUsage)
+              ? (latestData.current.approachUsage as unknown[])
+              : [];
+            handleDataChange("approachUsage", [
+              ...log,
+              { channel, variantId, label, action: "copied", at: new Date().toISOString() },
+            ]);
+          }}
         />
 
         {/* Meeting note — captured after the meeting; feeds the SoW file on convert. */}

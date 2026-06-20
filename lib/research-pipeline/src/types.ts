@@ -107,6 +107,72 @@ export interface ColdCallScript {
   anticipatedObjections: { objection: string; response: string }[];
 }
 
+// ----------------------------------------------------------------------------
+// Structured "Our read" + multi-variant "Approach"
+//
+// The banker wanted the read organised (headline → scannable facts → themed
+// detail) rather than prose, and the outreach broken into Email + Call with a
+// few angled versions to choose from. Both are new optional fields on PrepPack;
+// the legacy `marketRead` / `coldCall` are kept populated for back-compat.
+// ----------------------------------------------------------------------------
+
+/** A single fact in the read, with its provenance. */
+export interface ReadFact {
+  text: string;
+  /** "supported" = traceable to a source; "inference" = a framed likelihood. */
+  basis: "supported" | "inference";
+}
+
+/** One themed block of the read. */
+export interface ReadTheme {
+  /** Stable id: origin | structure | entities | watch. */
+  id: "origin" | "structure" | "entities" | "watch";
+  /** Display name, e.g. "How the wealth was built". */
+  heading: string;
+  /** One-line takeaway shown collapsed. */
+  takeaway: string;
+  facts: ReadFact[];
+}
+
+/** The structured read: a headline, scannable key facts, then themed detail. */
+export interface MarketRead {
+  /** The one-line "At a glance" headline. */
+  headline: string;
+  /** 3–6 scannable labelled facts. */
+  keyFacts: { label: string; value: string }[];
+  themes: ReadTheme[];
+}
+
+/** Shared angle metadata for an outreach variant. */
+export interface VariantAngle {
+  /** Short label for the switcher: "News hook" | "Warm intro" | "Direct". */
+  label: string;
+  /** One-line description of the angle. */
+  rationale: string;
+  /** The recent event/news this leans on, if any. */
+  newsHook?: string;
+}
+
+export interface EmailVariant extends VariantAngle {
+  id: string; // "email-1" …
+  subject: string;
+  body: string;
+}
+
+export interface CallVariant extends VariantAngle {
+  id: string; // "call-1" …
+  opener: string;
+  /** The call flow as ordered beats. */
+  flow: string[];
+}
+
+export interface Approach {
+  email: EmailVariant[];
+  call: CallVariant[];
+  /** Channel-agnostic pushback handling. */
+  anticipatedObjections: { objection: string; response: string }[];
+}
+
 /** A Source-of-Wealth question paired with why it matters and a likely answer. */
 export interface SowQuestion {
   question: string;
@@ -218,9 +284,16 @@ export interface WealthEstimate {
 }
 
 export interface PrepPack {
-  /** Our synthesised read of the prospect's likely wealth profile & trajectory. */
+  /** Our synthesised read of the prospect's likely wealth profile & trajectory.
+   * Legacy flat string — kept populated for back-compat + verification; the UI
+   * prefers the structured `read` below when present. */
   marketRead: string;
+  /** Structured read: headline → key facts → themed detail. */
+  read?: MarketRead;
+  /** Legacy single cold-call script — kept for back-compat; UI prefers `approach`. */
   coldCall: ColdCallScript;
+  /** Multi-variant outreach: Email + Call, each with a few angled versions. */
+  approach?: Approach;
   sourceOfWealth: {
     /** Which SoW categories most likely apply (employment, business_sale, trusts, …). */
     likelyCategories: string[];
