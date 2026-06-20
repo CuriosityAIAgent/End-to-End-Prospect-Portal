@@ -1,0 +1,138 @@
+// ============================================================================
+// Research cache (knowledge base, Phase 0).
+//
+// Persists each deep-research pass per subject so a later prep reuses the fresh
+// passages and skips the slow web fan-out. Freshness is per source kind — a
+// registry filing ages slower than a news article.
+// ============================================================================
+
+import { createHash } from "node:crypto";
+import { and, eq, gt, sql } from "drizzle-orm";
+import { db, documentsTable, type DocumentRow } from "@workspace/db";
+import type { RetrievedPassage, RetrievalSource } from "@workspace/research-pipeline";
+
+/** Stable key for "this prospect + disambiguating context". */
+export function normalizeSubject(name: string, context?: string): string {
+  return [name, context ?? ""]
+    .join(" ")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function sha256(s: string): string {
+  return createHash("sha256").update(s).digest("hex");
+}
+
+/** Canonicalise a URL for dedup: drop fragment + tracking params, lowercase host. */
+function normalizeUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    u.hash = "";
+    for (const k of [...u.searchParams.keys()]) {
+      if (/^(utm_|fbclid|gclid|ref|syn-)/i.test(k)) u.searchParams.delete(k);
+    }
+    u.hostname = u.hostname.toLowerCase();
+    return u.toString();
+  } catch {
+    return url.trim();
+  }
+}
+
+type SourceKind = "registry" | "filing" | "news" | "profile" | "web";
+
+const TTL_DAYS: Record<SourceKind, number> = {
+  registry: 90,
+  filing: 30,
+  news: 14,
+  profile: 60,
+  web: 21,
+};
+
+function classifyKind(url: string): SourceKind {
+  const h = (() => {
+    try {
+      return new URL(url).hostname.toLowerCase();
+    } catch {
+      return "";
+    }
+  })();
+  if (/sec\.gov|edgar/.test(h)) return "filing";
+  if (
+    /companieshouse|company-information\.service\.gov\.uk|charitycommission|register-of-charities|gov\.scot|landregistry|gazette\.gov\.uk|gov\.uk|registers\.service/.test(
+      h,
+    )
+  )
+    return "registry";
+  if (
+    /ft\.com|bloomberg|reuters|forbes|theguardian|telegraph|thetimes|nytimes|wsj|cnbc|bbc|cityam|sky\.com/.test(
+      h,
+    )
+  )
+    return "news";
+  if (/linkedin|crunchbase|compan-?profile|about/.test(h)) return "profile";
+  return "web";
+}
+
+const MIN_CACHED = 5;
+
+/** Fresh cached passages for a subject (empty if too few / all stale). */
+export async function loadFreshCorpus(subject: string): Promise<RetrievedPassage[]> {
+  const rows: DocumentRow[] = await db
+    .select()
+    .from(documentsTable)
+    .where(and(eq(documentsTable.subject, subject), gt(documentsTable.staleAfter, new Date())));
+
+  if (rows.length < MIN_CACHED) return [];
+  return rows.map((r) => ({
+    title: r.title,
+    url: r.url,
+    text: r.text,
+    source: (r.source as RetrievalSource) ?? "jina",
+    angle: (r.angle as RetrievedPassage["angle"]) ?? undefined,
+    fetchedAt: r.fetchedAt.toISOString(),
+  }));
+}
+
+/** Upsert a freshly-retrieved corpus for a subject (dedup on subject + URL). */
+export async function storeCorpus(subject: string, passages: RetrievedPassage[]): Promise<void> {
+  if (passages.length === 0) return;
+  const now = new Date();
+  const rows = passages
+    .filter((p) => p.url)
+    .map((p) => {
+      const kind = classifyKind(p.url);
+      return {
+        subject,
+        url: p.url,
+        urlHash: sha256(normalizeUrl(p.url)),
+        contentHash: sha256(p.text ?? ""),
+        title: p.title ?? "",
+        text: p.text ?? "",
+        source: p.source ?? "jina",
+        sourceKind: kind,
+        angle: p.angle ?? null,
+        fetchedAt: now,
+        staleAfter: new Date(now.getTime() + TTL_DAYS[kind] * 86_400_000),
+      };
+    });
+  if (rows.length === 0) return;
+
+  await db
+    .insert(documentsTable)
+    .values(rows)
+    .onConflictDoUpdate({
+      target: [documentsTable.subject, documentsTable.urlHash],
+      set: {
+        contentHash: sql`excluded.content_hash`,
+        title: sql`excluded.title`,
+        text: sql`excluded.text`,
+        source: sql`excluded.source`,
+        sourceKind: sql`excluded.source_kind`,
+        angle: sql`excluded.angle`,
+        fetchedAt: sql`excluded.fetched_at`,
+        staleAfter: sql`excluded.stale_after`,
+        updatedAt: now,
+      },
+    });
+}

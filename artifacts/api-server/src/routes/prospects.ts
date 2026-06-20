@@ -25,6 +25,7 @@ import {
   serializeJob,
   updateJob,
 } from "../jobs/runner";
+import { normalizeSubject, loadFreshCorpus, storeCorpus } from "../research/cache";
 import {
   CreateProspectBody,
   GetProspectParams,
@@ -540,19 +541,35 @@ async function runPrepJob(
     }
 
     const notes = bankerNotes(prospect.data ?? {});
-    const research = retrievalConfigured()
-      ? await deepResearch(prospect.name, {
-          context: researchContext(prospect),
-          depth,
-          onProgress: (p) => {
-            // Map research completion onto 5–45% of the overall bar.
-            const pct = 5 + Math.round((p.completed / Math.max(1, p.total)) * 40);
-            void updateJob(jobId, { progress: pct, stageDetail: p.detail });
-          },
-        })
-      : { passages: [], anglesCovered: [] as string[] };
-    const useCorpus = research.passages.length > 0;
-    const corpusBlock = useCorpus ? corpusToPromptBlock(research.passages) : "";
+
+    // Knowledge base: reuse fresh cached research for this subject and skip the
+    // slow web fan-out; otherwise research and cache the result for next time.
+    const subjectKey = normalizeSubject(prospect.name, researchContext(prospect));
+    let passages = await loadFreshCorpus(subjectKey).catch((err) => {
+      logger.warn({ err, jobId }, "Research cache read failed (non-fatal)");
+      return [] as Awaited<ReturnType<typeof loadFreshCorpus>>;
+    });
+
+    if (passages.length > 0) {
+      await updateJob(jobId, { progress: 45, stageDetail: "Using saved research…" });
+    } else if (retrievalConfigured()) {
+      const research = await deepResearch(prospect.name, {
+        context: researchContext(prospect),
+        depth,
+        onProgress: (p) => {
+          // Map research completion onto 5–45% of the overall bar.
+          const pct = 5 + Math.round((p.completed / Math.max(1, p.total)) * 40);
+          void updateJob(jobId, { progress: pct, stageDetail: p.detail });
+        },
+      });
+      passages = research.passages;
+      await storeCorpus(subjectKey, passages).catch((err) =>
+        logger.warn({ err, jobId }, "Research cache write failed (non-fatal)"),
+      );
+    }
+
+    const useCorpus = passages.length > 0;
+    const corpusBlock = useCorpus ? corpusToPromptBlock(passages) : "";
 
     await updateJob(jobId, {
       status: "drafting",
@@ -610,7 +627,7 @@ async function runPrepJob(
     const originalQuestions = pack.sourceOfWealth.questions.slice();
 
     const sources = dedupeByUrl([
-      ...research.passages.map((p) => ({ title: p.title, url: p.url })),
+      ...passages.map((p) => ({ title: p.title, url: p.url })),
       ...webSources,
     ]);
 
