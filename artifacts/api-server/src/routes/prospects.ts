@@ -544,7 +544,7 @@ async function runPrepJob(
 
     // Knowledge base: reuse fresh cached research for this subject and skip the
     // slow web fan-out; otherwise research and cache the result for next time.
-    const subjectKey = normalizeSubject(prospect.name, researchContext(prospect));
+    const subjectKey = normalizeSubject(prospect.name, researchContext(prospect), depth);
     let passages = await loadFreshCorpus(subjectKey).catch((err) => {
       logger.warn({ err, jobId }, "Research cache read failed (non-fatal)");
       return [] as Awaited<ReturnType<typeof loadFreshCorpus>>;

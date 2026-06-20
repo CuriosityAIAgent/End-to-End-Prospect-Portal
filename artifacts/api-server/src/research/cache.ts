@@ -11,13 +11,16 @@ import { and, eq, gt, sql } from "drizzle-orm";
 import { db, documentsTable, type DocumentRow } from "@workspace/db";
 import type { RetrievedPassage, RetrievalSource } from "@workspace/research-pipeline";
 
-/** Stable key for "this prospect + disambiguating context". */
-export function normalizeSubject(name: string, context?: string): string {
-  return [name, context ?? ""]
+/** Stable key for "this prospect + disambiguating context + research depth".
+ * Depth is part of the key so a shallow `quick` corpus is never reused to serve
+ * a `deep` request (which must run the broader registry sweep). */
+export function normalizeSubject(name: string, context: string | undefined, depth: string): string {
+  const base = [name, context ?? ""]
     .join(" ")
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
+  return `${base}::${depth}`;
 }
 
 function sha256(s: string): string {
@@ -98,24 +101,30 @@ export async function loadFreshCorpus(subject: string): Promise<RetrievedPassage
 export async function storeCorpus(subject: string, passages: RetrievedPassage[]): Promise<void> {
   if (passages.length === 0) return;
   const now = new Date();
-  const rows = passages
-    .filter((p) => p.url)
-    .map((p) => {
-      const kind = classifyKind(p.url);
-      return {
-        subject,
-        url: p.url,
-        urlHash: sha256(normalizeUrl(p.url)),
-        contentHash: sha256(p.text ?? ""),
-        title: p.title ?? "",
-        text: p.text ?? "",
-        source: p.source ?? "jina",
-        sourceKind: kind,
-        angle: p.angle ?? null,
-        fetchedAt: now,
-        staleAfter: new Date(now.getTime() + TTL_DAYS[kind] * 86_400_000),
-      };
+  // Dedup by normalised-URL hash within the batch: two passages that normalise
+  // to the same URL would make ON CONFLICT "affect a row twice" and Postgres
+  // rejects the whole insert. Keep the first occurrence.
+  const byHash = new Map<string, typeof documentsTable.$inferInsert>();
+  for (const p of passages) {
+    if (!p.url) continue;
+    const urlHash = sha256(normalizeUrl(p.url));
+    if (byHash.has(urlHash)) continue;
+    const kind = classifyKind(p.url);
+    byHash.set(urlHash, {
+      subject,
+      url: p.url,
+      urlHash,
+      contentHash: sha256(p.text ?? ""),
+      title: p.title ?? "",
+      text: p.text ?? "",
+      source: p.source ?? "jina",
+      sourceKind: kind,
+      angle: p.angle ?? null,
+      fetchedAt: now,
+      staleAfter: new Date(now.getTime() + TTL_DAYS[kind] * 86_400_000),
     });
+  }
+  const rows = [...byHash.values()];
   if (rows.length === 0) return;
 
   await db
