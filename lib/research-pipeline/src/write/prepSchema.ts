@@ -140,6 +140,16 @@ function deriveColdCall(approach: Approach): ColdCallScript {
   };
 }
 
+/** Read a legacy `coldCall` object, for replies still in the old shape. */
+function parseLegacyColdCall(raw: unknown): ColdCallScript | null {
+  if (!raw || typeof raw !== "object") return null;
+  const c = raw as Record<string, unknown>;
+  const opener = str(c.opener);
+  const talkingPoints = strArr(c.talkingPoints);
+  if (!opener.trim() && talkingPoints.length === 0) return null;
+  return { opener, talkingPoints, anticipatedObjections: parseObjections(c.anticipatedObjections) };
+}
+
 export type ParsedPrep = Pick<
   PrepPack,
   "read" | "approach" | "marketRead" | "coldCall" | "sourceOfWealth"
@@ -171,11 +181,22 @@ export function parsePrepResponse(text: string): ParsedPrep | null {
         .filter((q) => q.question.trim().length > 0)
     : [];
 
+  // Derive the legacy flat fields from the structured forms — but if the model
+  // replied in the OLD shape (marketRead/coldCall) and omitted read/approach,
+  // fall back to that raw content rather than ship blanks.
+  const derivedRead = deriveMarketRead(read);
+  const marketRead = derivedRead.trim() ? derivedRead : str(raw.marketRead);
+  const derivedCold = deriveColdCall(approach);
+  const coldCall =
+    derivedCold.opener.trim() || derivedCold.talkingPoints.length > 0
+      ? derivedCold
+      : parseLegacyColdCall(raw.coldCall) ?? derivedCold;
+
   return {
     read,
     approach,
-    marketRead: deriveMarketRead(read),
-    coldCall: deriveColdCall(approach),
+    marketRead,
+    coldCall,
     sourceOfWealth: { likelyCategories: strArr(sow.likelyCategories), questions },
   };
 }

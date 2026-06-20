@@ -305,8 +305,10 @@ export default function Prospect() {
           onFieldChange={handleDataChange}
           onApproachCopy={(channel, variantId, label) => {
             // Lightweight learning: append which outreach variant the RM copies.
-            const log = Array.isArray(localData.approachUsage)
-              ? (localData.approachUsage as unknown[])
+            // Read the live ref (not render-captured localData) so two quick
+            // copies don't clobber each other.
+            const log = Array.isArray(latestData.current.approachUsage)
+              ? (latestData.current.approachUsage as unknown[])
               : [];
             handleDataChange("approachUsage", [
               ...log,
