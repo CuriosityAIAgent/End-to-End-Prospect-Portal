@@ -77,13 +77,20 @@ export function computeEstimate(lines: AssumptionLine[], currency: string): Comp
   let liqEvHigh = 0;
   for (const l of lines) {
     if ((l.category !== "liquidity_event" && l.category !== "known_asset") || !l.amount) continue;
-    evLow += Math.max(0, l.amount.low);
-    evBase += Math.max(0, l.amount.base);
-    evHigh += Math.max(0, l.amount.high);
+    // A known asset can't be worth less than zero, but a liquidity_event can be
+    // NEGATIVE — a loss (e.g. wealth destroyed in a collapsed deal) — and must
+    // subtract from the estimate rather than be clamped away.
+    const floor = l.category === "known_asset" ? 0 : Number.NEGATIVE_INFINITY;
+    const lo = Math.max(floor, l.amount.low);
+    const ba = Math.max(floor, l.amount.base);
+    const hi = Math.max(floor, l.amount.high);
+    evLow += lo;
+    evBase += ba;
+    evHigh += hi;
     if (l.liquid) {
-      liqEvLow += Math.max(0, l.amount.low);
-      liqEvBase += Math.max(0, l.amount.base);
-      liqEvHigh += Math.max(0, l.amount.high);
+      liqEvLow += lo;
+      liqEvBase += ba;
+      liqEvHigh += hi;
     }
   }
 
@@ -102,16 +109,18 @@ export function computeEstimate(lines: AssumptionLine[], currency: string): Comp
   // Up to +50% widening when the ledger leans on inference.
   const widen = 1 + weakFraction * 0.5;
 
+  // Net worth floors at zero (losses can drive the raw figure negative).
+  const floor0 = (n: number) => Math.max(0, n);
   const total: MoneyRange = {
-    low: round2sig(totalLow / widen),
-    base: round2sig(totalBase),
-    high: round2sig(totalHigh * widen),
+    low: floor0(round2sig(totalLow / widen)),
+    base: floor0(round2sig(totalBase)),
+    high: floor0(round2sig(totalHigh * widen)),
     currency,
   };
   const liquid: MoneyRange = {
-    low: round2sig(liquidLow / widen),
-    base: round2sig(liquidBase),
-    high: round2sig(Math.min(liquidHigh * widen, total.high)),
+    low: floor0(round2sig(liquidLow / widen)),
+    base: floor0(round2sig(liquidBase)),
+    high: floor0(round2sig(Math.min(liquidHigh * widen, total.high))),
     currency,
   };
 

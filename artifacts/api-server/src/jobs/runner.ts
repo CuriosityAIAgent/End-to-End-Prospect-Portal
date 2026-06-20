@@ -6,7 +6,7 @@
 // leave and come back, and a restart can't leave a job spinning forever.
 // ============================================================================
 
-import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db, jobsTable, type Job } from "@workspace/db";
 import { logger } from "../lib/logger";
 
@@ -14,11 +14,18 @@ export type JobStatus =
   | "queued"
   | "researching"
   | "drafting"
+  | "estimating"
   | "verifying"
   | "done"
   | "failed";
 
-const ACTIVE_STATUSES: JobStatus[] = ["queued", "researching", "drafting", "verifying"];
+const ACTIVE_STATUSES: JobStatus[] = [
+  "queued",
+  "researching",
+  "drafting",
+  "estimating",
+  "verifying",
+];
 
 export function isTerminal(status: string): boolean {
   return status === "done" || status === "failed";
@@ -130,26 +137,25 @@ export function schedule(task: () => Promise<void>): void {
 }
 
 /**
- * Boot-time recovery: any job still ACTIVE belongs to a previous process (this
- * one has just started and created none yet), so mark them failed/interrupted
- * rather than let the UI poll a job nothing is working on. Fail-soft if the DB
- * isn't provisioned (matches the lazy-connection philosophy).
+ * Boot-time recovery. The worker runs in-process on a single instance, so when
+ * this process starts, ANY job still in an active state belongs to a previous
+ * (crashed/redeployed) process — there is no other worker that could be running
+ * it, regardless of how recently it heartbeated. Mark them all failed so the UI
+ * stops polling a job nothing will finish and offers a retry.
+ *
+ * MUST be awaited BEFORE the HTTP listener opens (see index.ts): once we accept
+ * requests, new jobs exist that we must not sweep. Fail-soft if the DB isn't
+ * provisioned (matches the lazy-connection philosophy).
  */
 export async function recoverStaleJobs(): Promise<void> {
   try {
-    const cutoff = new Date(Date.now() - 90_000);
     const recovered = await db
       .update(jobsTable)
       .set({ status: "failed", error: "interrupted", heartbeatAt: new Date() })
-      .where(
-        and(
-          inArray(jobsTable.status, ACTIVE_STATUSES),
-          or(lt(jobsTable.heartbeatAt, cutoff), isNull(jobsTable.heartbeatAt)),
-        ),
-      )
+      .where(inArray(jobsTable.status, ACTIVE_STATUSES))
       .returning({ id: jobsTable.id });
     if (recovered.length) {
-      logger.warn({ count: recovered.length }, "Recovered stale jobs after restart");
+      logger.warn({ count: recovered.length }, "Recovered orphaned jobs after restart");
     }
   } catch (err) {
     logger.warn({ err }, "Job recovery sweep skipped (DB unavailable?)");
