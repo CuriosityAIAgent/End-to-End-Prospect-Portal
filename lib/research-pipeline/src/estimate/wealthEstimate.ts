@@ -26,7 +26,7 @@ const SIMPLE_MODEL = process.env.WEALTH_ESTIMATOR_MODEL ?? "claude-sonnet-4-6";
 const COMPLEX_MODEL = process.env.WEALTH_ESTIMATOR_MODEL_COMPLEX ?? "claude-opus-4-8";
 
 const CATEGORIES: AssumptionCategory[] = [
-  "role_comp", "carry_equity", "liquidity_event", "known_asset",
+  "reported_net_worth", "role_comp", "carry_equity", "liquidity_event", "known_asset",
   "savings_rate", "investment_return", "tax", "illiquidity", "other",
 ];
 const BASES: AssumptionBasis[] = ["from-source", "benchmark-table", "benchmark-inferred", "assumption"];
@@ -35,6 +35,7 @@ const ESTIMATOR_INSTRUCTIONS = [
   "You are a senior private banker estimating a UHNW prospect's net worth to validate what size of account is plausible. Your estimate must be DEFENSIBLE — never invent figures. You do NOT write a number; you build a LEDGER of grounded assumptions, and our system computes the ranges from it.",
   "",
   "Method: from the SOURCE MATERIAL and the banker's notes, establish the prospect's roles, seniority, firms, tenure and geography. Then build the ledger:",
+  "- If the SOURCE MATERIAL reports a credible TOTAL net-worth figure (e.g. a rich-list valuation), add it as a `reported_net_worth` line with a one-off AMOUNT range. IMPORTANT: when you do this, do NOT separately itemise the operating-company stake or the accumulated salary that MAKE UP that net worth — those are the SAME wealth and would double-count. Model EITHER the top-down reported figure OR the bottom-up build, not both for the total. Prefer the reported figure when one exists; you may still record comp lines, but understand they inform the LIQUID estimate, not an addition to the total.",
   "- Income streams as role_comp (base + bonus) and carry_equity (carried interest / equity / RSUs): give an ANNUAL range and the number of YEARS.",
   "- One-off items as liquidity_event (exit / IPO / sale) and known_asset (property, shareholding): give a one-off AMOUNT and whether it is liquid.",
   "- Modelling parameters as tax, savings_rate, investment_return: give a rate (0..1).",
@@ -46,7 +47,7 @@ const ESTIMATOR_INSTRUCTIONS = [
   "If there is genuinely no anchor — no role/tenure AND no stated asset or wealth figure — set refused=true with a one-line refusalReason rather than inventing an estimate. Otherwise estimate, using wide ranges and low confidence when evidence is thin.",
   "",
   "Return ONLY JSON (no markdown):",
-  '{ "refused": false, "refusalReason": "", "currency": "GBP", "headline": "…", "assumptions": [ { "id": "a1", "label": "Base+bonus, MD at <firm>, 2012–2024", "category": "role_comp", "annual": {"low":800000,"base":1200000,"high":1800000}, "years": 12, "basis": "benchmark-inferred", "sourceRef": "[3]", "confidence": "medium" }, { "id":"a2", "label":"Effective tax rate", "category":"tax", "rate":0.45, "basis":"assumption", "sourceRef":"", "confidence":"high" }, { "id":"a3", "label":"2019 sale of stake in <co>", "category":"liquidity_event", "amount":{"low":30000000,"base":40000000,"high":50000000}, "liquid":true, "basis":"from-source", "sourceRef":"[5]", "confidence":"high" } ] }',
+  '{ "refused": false, "refusalReason": "", "currency": "GBP", "headline": "…", "assumptions": [ { "id":"a1", "label":"Reported net worth (rich-list)", "category":"reported_net_worth", "amount":{"low":6000000000,"base":7000000000,"high":9000000000}, "basis":"from-source", "sourceRef":"[1]", "confidence":"medium" }, { "id": "a2", "label": "Base+bonus, MD at <firm>, 2012–2024", "category": "role_comp", "annual": {"low":800000,"base":1200000,"high":1800000}, "years": 12, "basis": "benchmark-inferred", "sourceRef": "[3]", "confidence": "medium" }, { "id":"a3", "label":"Effective tax rate", "category":"tax", "rate":0.45, "basis":"assumption", "sourceRef":"", "confidence":"high" }, { "id":"a4", "label":"2019 sale of stake in <co>", "category":"liquidity_event", "amount":{"low":30000000,"base":40000000,"high":50000000}, "liquid":true, "basis":"from-source", "sourceRef":"[5]", "confidence":"high" } ] }. Give every assumption a UNIQUE id.',
 ].join("\n");
 
 function chooseComplex(corpusBlock: string, notes: string): boolean {
@@ -122,6 +123,19 @@ function parseLedger(text: string): DraftedLedger | null {
         }))
         .filter((l) => l.label.trim().length > 0)
     : [];
+
+  // Guarantee unique line ids: the validator keys verdicts by id in a Map, so a
+  // duplicate id (even if the model emits one) would silently overwrite a line's
+  // verdict. Suffix collisions.
+  const seenIds = new Set<string>();
+  for (const l of lines) {
+    let id = l.id;
+    let n = 2;
+    while (seenIds.has(id)) id = `${l.id}-${n++}`;
+    l.id = id;
+    seenIds.add(id);
+  }
+
   return {
     refused: raw.refused === true,
     refusalReason: typeof raw.refusalReason === "string" ? raw.refusalReason : "",

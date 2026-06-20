@@ -212,6 +212,7 @@ export type AssumptionBasis =
 
 /** What a ledger line drives in the deterministic computation. */
 export type AssumptionCategory =
+  | "reported_net_worth" // a top-down reported TOTAL net-worth figure (from-source)
   | "role_comp" // base + bonus for a role (income stream: annual × years)
   | "carry_equity" // carried interest / equity / RSUs (income stream)
   | "liquidity_event" // a one-off event: exit, IPO, sale (amount)

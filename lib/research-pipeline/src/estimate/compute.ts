@@ -94,10 +94,31 @@ export function computeEstimate(lines: AssumptionLine[], currency: string): Comp
     }
   }
 
-  // Accumulated financial wealth is liquid by nature; assets/events add per flag.
-  const totalLow = accLow + evLow;
-  const totalBase = accBase + evBase;
-  const totalHigh = accHigh + evHigh;
+  // Top-down anchor: a credible reported TOTAL net-worth figure (a rich-list
+  // valuation) is a current, comprehensive snapshot — it already subsumes the
+  // operating-company stake, held assets and the wealth the accumulated comp
+  // built. So when one is present we DELIBERATELY anchor total on it rather than
+  // summing the components, which would double-count the same wealth (the bug
+  // this guards against). The component lines instead inform the LIQUID estimate.
+  // With no reported figure we build the total bottom-up from the components.
+  const reported = lines.filter((l) => l.category === "reported_net_worth" && l.amount);
+
+  let totalLow: number;
+  let totalBase: number;
+  let totalHigh: number;
+  if (reported.length > 0) {
+    totalLow = Math.min(...reported.map((l) => l.amount!.low));
+    totalHigh = Math.max(...reported.map((l) => l.amount!.high));
+    totalBase = reported.reduce((s, l) => s + l.amount!.base, 0) / reported.length;
+  } else {
+    // No reported figure — build bottom-up: accumulated comp + events + assets.
+    totalLow = accLow + evLow;
+    totalBase = accBase + evBase;
+    totalHigh = accHigh + evHigh;
+  }
+  // Liquid is always bottom-up: accumulated financial wealth (liquid by nature)
+  // plus only the assets/events explicitly flagged liquid — never the reported
+  // total (which bundles the illiquid operating stake).
   const liquidLow = accLow + liqEvLow;
   const liquidBase = accBase + liqEvBase;
   const liquidHigh = accHigh + liqEvHigh;
@@ -117,10 +138,12 @@ export function computeEstimate(lines: AssumptionLine[], currency: string): Comp
     high: floor0(round2sig(totalHigh * widen)),
     currency,
   };
+  // Liquid net worth is a subset of total — cap every component at the total so
+  // an anchored (top-down) total can never be exceeded by bottom-up liquid.
   const liquid: MoneyRange = {
-    low: floor0(round2sig(liquidLow / widen)),
-    base: floor0(round2sig(liquidBase)),
-    high: floor0(round2sig(Math.min(liquidHigh * widen, total.high))),
+    low: Math.min(floor0(round2sig(liquidLow / widen)), total.low),
+    base: Math.min(floor0(round2sig(liquidBase)), total.base),
+    high: Math.min(floor0(round2sig(liquidHigh * widen)), total.high),
     currency,
   };
 
