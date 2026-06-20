@@ -7,7 +7,9 @@ import { cn } from "@/lib/utils";
 import {
   Sparkles, Loader2, AlertCircle, ShieldCheck, ShieldAlert,
   Phone, ScrollText, Compass, ExternalLink, FileText, Check, Gauge, Layers,
+  Mail, Copy, Newspaper,
 } from "lucide-react";
+import type { MarketRead, Approach, ColdCallScript } from "@workspace/research-pipeline/types";
 
 type ResearchDepth = "quick" | "deep";
 
@@ -182,6 +184,227 @@ function WealthEstimatePanel({ estimate }: { estimate: NonNullable<PrepPack["wea
   );
 }
 
+// ── "Our read" — structured, with legacy prose fallback ─────────────────────
+function ReadSection({ read, fallback }: { read?: MarketRead; fallback: string }) {
+  if (!read || (!read.headline.trim() && read.keyFacts.length === 0 && read.themes.length === 0)) {
+    if (!fallback.trim()) return null;
+    return (
+      <section className="space-y-3">
+        <div className="flex items-center gap-2"><Compass className="w-4 h-4" style={{ color: ACCENT }} /><SectionTitle>Our read</SectionTitle></div>
+        <p className="text-[15px] leading-[1.6] whitespace-pre-line" style={{ color: INK }}>{fallback}</p>
+      </section>
+    );
+  }
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-2"><Compass className="w-4 h-4" style={{ color: ACCENT }} /><SectionTitle>Our read</SectionTitle></div>
+      {read.headline.trim() && (
+        <p className="text-[19px] leading-snug" style={{ fontFamily: SERIF, color: INK }}>{read.headline}</p>
+      )}
+      {read.keyFacts.length > 0 && (
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+          {read.keyFacts.map((f, i) => (
+            <div key={i} className="flex gap-2 text-[14px] leading-snug pl-4 relative">
+              <span className="absolute left-0" style={{ color: ACCENT }}>—</span>
+              <dt className="font-medium shrink-0" style={{ color: INK }}>{f.label}:</dt>
+              <dd style={{ color: "#4A4A4A" }}>{f.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {read.themes.length > 0 && (
+        <div className="space-y-2 pt-1">
+          {read.themes.map((t, i) => (
+            <details key={t.id} open={i === 0} className="border-t pt-2" style={{ borderColor: BORDER }}>
+              <summary className="cursor-pointer select-none flex items-baseline gap-2">
+                <span className="text-[15px] font-medium" style={{ color: INK }}>{t.heading}</span>
+                <span className="text-sm" style={{ color: "#7A7A6F" }}>{t.takeaway}</span>
+              </summary>
+              {t.facts.length > 0 && (
+                <ul className="mt-2 space-y-1.5">
+                  {t.facts.map((f, j) => (
+                    <li key={j} className="text-[14px] leading-[1.5] pl-4 relative" style={{ color: INK }}>
+                      <span className="absolute left-0" style={{ color: ACCENT }}>—</span>
+                      {f.text}
+                      {f.basis === "inference" && (
+                        <span className="ml-1.5 text-[10px] uppercase tracking-wider align-middle" style={{ color: "#9A7B00" }}>· inferred</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </details>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ── "The approach" — Email/Call tabs with angled variants + copy ────────────
+function CopyButton({ text, onCopied }: { text: string; onCopied?: () => void }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigator.clipboard.writeText(text).then(() => {
+          setDone(true);
+          onCopied?.();
+          setTimeout(() => setDone(false), 1800);
+        });
+      }}
+      className="inline-flex items-center gap-1.5 text-xs px-2 py-1 border rounded hover:bg-black/[0.03]"
+      style={{ borderColor: BORDER, color: done ? ACCENT : INK }}
+    >
+      {done ? <><Check className="w-3 h-3" /> Copied</> : <><Copy className="w-3 h-3" /> Copy</>}
+    </button>
+  );
+}
+
+function ApproachSection({
+  approach,
+  fallback,
+  onCopyVariant,
+}: {
+  approach?: Approach;
+  fallback: ColdCallScript;
+  onCopyVariant?: (channel: "email" | "call", variantId: string, label: string) => void;
+}) {
+  const [channel, setChannel] = useState<"email" | "call">("email");
+  const [idx, setIdx] = useState<{ email: number; call: number }>({ email: 0, call: 0 });
+
+  const hasApproach = !!approach && (approach.email.length > 0 || approach.call.length > 0);
+  const objections = approach?.anticipatedObjections ?? fallback.anticipatedObjections;
+
+  if (!hasApproach) {
+    // Legacy single cold-call script.
+    if (!fallback.opener.trim() && fallback.talkingPoints.length === 0) return null;
+    return (
+      <section className="space-y-3">
+        <div className="flex items-center gap-2"><Phone className="w-4 h-4" style={{ color: ACCENT }} /><SectionTitle>The approach</SectionTitle></div>
+        {fallback.opener.trim() && <p className="text-[15px] leading-[1.6] italic" style={{ color: INK }}>“{fallback.opener}”</p>}
+        {fallback.talkingPoints.length > 0 && (
+          <ul className="space-y-1.5">
+            {fallback.talkingPoints.map((t, i) => (
+              <li key={i} className="text-[15px] leading-[1.55] pl-4 relative" style={{ color: INK }}><span className="absolute left-0" style={{ color: ACCENT }}>—</span>{t}</li>
+            ))}
+          </ul>
+        )}
+        {objections.length > 0 && <ObjectionList objections={objections} />}
+      </section>
+    );
+  }
+
+  const a = approach!;
+  const variants = channel === "email" ? a.email : a.call;
+  const active = idx[channel];
+  const v = variants[Math.min(active, variants.length - 1)];
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-2"><Phone className="w-4 h-4" style={{ color: ACCENT }} /><SectionTitle>The approach</SectionTitle></div>
+
+      {/* Channel tabs */}
+      <div className="flex gap-4 border-b" style={{ borderColor: BORDER }}>
+        {([
+          { key: "email", icon: Mail, label: `Email${a.email.length ? ` (${a.email.length})` : ""}` },
+          { key: "call", icon: Phone, label: `Call${a.call.length ? ` (${a.call.length})` : ""}` },
+        ] as const).map((c) => {
+          const on = channel === c.key;
+          const Icon = c.icon;
+          return (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => setChannel(c.key)}
+              className="inline-flex items-center gap-1.5 pb-2 -mb-px text-sm border-b-2"
+              style={{ borderColor: on ? ACCENT : "transparent", color: on ? INK : "#7A7A6F", fontWeight: on ? 600 : 400 }}
+            >
+              <Icon className="w-3.5 h-3.5" /> {c.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Variant switcher */}
+      {variants.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          {variants.map((opt, i) => {
+            const on = i === active;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setIdx((s) => ({ ...s, [channel]: i }))}
+                className="text-xs px-2.5 py-1 rounded-full border"
+                style={on ? { background: ACCENT, color: "#fff", borderColor: ACCENT } : { borderColor: BORDER, color: "#4A4A4A" }}
+              >
+                v{i + 1} · {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Active variant card */}
+      {v && (
+        <div className="border rounded p-4 space-y-3" style={{ borderColor: BORDER, background: "#FBFAF7" }}>
+          {v.rationale && <p className="text-xs" style={{ color: "#7A7A6F" }}>{v.rationale}</p>}
+          {v.newsHook && (
+            <p className="text-xs flex items-start gap-1.5" style={{ color: ACCENT }}>
+              <Newspaper className="w-3.5 h-3.5 mt-0.5 shrink-0" /> <span>Leans on: {v.newsHook}</span>
+            </p>
+          )}
+          {channel === "email" ? (
+            <>
+              <p className="text-sm" style={{ color: INK }}><span className="font-semibold">Subject:</span> {(v as Approach["email"][number]).subject}</p>
+              <p className="text-[15px] leading-[1.6] whitespace-pre-line" style={{ color: INK }}>{(v as Approach["email"][number]).body}</p>
+              <CopyButton
+                text={`Subject: ${(v as Approach["email"][number]).subject}\n\n${(v as Approach["email"][number]).body}`}
+                onCopied={() => onCopyVariant?.("email", v.id, v.label)}
+              />
+            </>
+          ) : (
+            <>
+              <p className="text-[15px] leading-[1.6] italic" style={{ color: INK }}>“{(v as Approach["call"][number]).opener}”</p>
+              {(v as Approach["call"][number]).flow.length > 0 && (
+                <ol className="space-y-1.5">
+                  {(v as Approach["call"][number]).flow.map((beat, i) => (
+                    <li key={i} className="text-[14px] leading-[1.5] flex gap-2" style={{ color: INK }}>
+                      <span style={{ color: ACCENT }}>{i + 1}.</span> {beat}
+                    </li>
+                  ))}
+                </ol>
+              )}
+              <CopyButton
+                text={`${(v as Approach["call"][number]).opener}\n\n${(v as Approach["call"][number]).flow.map((b, i) => `${i + 1}. ${b}`).join("\n")}`}
+                onCopied={() => onCopyVariant?.("call", v.id, v.label)}
+              />
+            </>
+          )}
+        </div>
+      )}
+
+      {objections.length > 0 && <ObjectionList objections={objections} />}
+    </section>
+  );
+}
+
+function ObjectionList({ objections }: { objections: { objection: string; response: string }[] }) {
+  return (
+    <div className="space-y-2 pt-1">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: ACCENT }}>Likely pushback</span>
+      {objections.map((o, i) => (
+        <div key={i} className="border-l-2 pl-3" style={{ borderColor: BORDER }}>
+          <p className="text-sm font-medium" style={{ color: INK }}>“{o.objection}”</p>
+          <p className="text-sm" style={{ color: "#4A4A4A" }}>{o.response}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ProspectPrepPanel({
   prospectId,
   prospectName,
@@ -189,6 +412,7 @@ export function ProspectPrepPanel({
   industry,
   knownInfo,
   onFieldChange,
+  onApproachCopy,
 }: {
   prospectId: number;
   prospectName: string;
@@ -197,6 +421,8 @@ export function ProspectPrepPanel({
   knownInfo?: string;
   /** Debounced autosave of a single prospect.data field. */
   onFieldChange?: (key: string, value: string) => void;
+  /** Capture which outreach variant the banker copies (lightweight learning). */
+  onApproachCopy?: (channel: "email" | "call", variantId: string, label: string) => void;
 }) {
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -435,42 +661,11 @@ export function ProspectPrepPanel({
             );
           })()}
 
-          {/* Market read */}
-          {shown.marketRead.trim() && (
-            <section className="space-y-3">
-              <div className="flex items-center gap-2"><Compass className="w-4 h-4" style={{ color: ACCENT }} /><SectionTitle>Our read</SectionTitle></div>
-              <p className="text-[15px] leading-[1.6] whitespace-pre-line" style={{ color: INK }}>{shown.marketRead}</p>
-            </section>
-          )}
+          {/* Our read — structured (legacy prose fallback) */}
+          <ReadSection read={shown.read} fallback={shown.marketRead} />
 
-          {/* Cold call */}
-          {(shown.coldCall.opener.trim() || shown.coldCall.talkingPoints.length > 0) && (
-            <section className="space-y-3">
-              <div className="flex items-center gap-2"><Phone className="w-4 h-4" style={{ color: ACCENT }} /><SectionTitle>The approach</SectionTitle></div>
-              {shown.coldCall.opener.trim() && (
-                <p className="text-[15px] leading-[1.6] italic" style={{ color: INK }}>“{shown.coldCall.opener}”</p>
-              )}
-              {shown.coldCall.talkingPoints.length > 0 && (
-                <ul className="space-y-1.5">
-                  {shown.coldCall.talkingPoints.map((t, i) => (
-                    <li key={i} className="text-[15px] leading-[1.55] pl-4 relative" style={{ color: INK }}>
-                      <span className="absolute left-0" style={{ color: ACCENT }}>—</span>{t}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {shown.coldCall.anticipatedObjections.length > 0 && (
-                <div className="space-y-2 pt-2">
-                  {shown.coldCall.anticipatedObjections.map((o, i) => (
-                    <div key={i} className="border-l-2 pl-3" style={{ borderColor: BORDER }}>
-                      <p className="text-sm font-medium" style={{ color: INK }}>“{o.objection}”</p>
-                      <p className="text-sm" style={{ color: "#4A4A4A" }}>{o.response}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
+          {/* The approach — Email/Call variants (legacy cold-call fallback) */}
+          <ApproachSection approach={shown.approach} fallback={shown.coldCall} onCopyVariant={onApproachCopy} />
 
           {/* Source of Wealth questions */}
           {shown.sourceOfWealth.questions.length > 0 && (

@@ -8,6 +8,8 @@ import {
   draft,
   verifySections,
   sowEvidencePromptBlock,
+  prepResponseSpec,
+  parsePrepResponse,
   estimateWealth,
   assumptionsToQuestions,
   type Verification,
@@ -567,11 +569,7 @@ async function runPrepJob(
       "Model the Source-of-Wealth questions and the documents you expect on how good private banks frame SoW, using this reference:",
       sowEvidencePromptBlock(),
       "",
-      "Return ONLY a JSON object (no markdown) with exactly:",
-      '  "marketRead": string — 2-3 short paragraphs: our read of how this person likely built their wealth and where it sits (operating companies, trusts/foundations, property, offshore). Frame inferences as inferences.',
-      '  "coldCall": { "opener": string, "talkingPoints": string[] (3-5), "anticipatedObjections": [{ "objection": string, "response": string }] (2-3) }.',
-      '  "sourceOfWealth": { "likelyCategories": string[] (category ids from the reference that most likely apply), "questions": [{ "question": string, "why": string, "suggestedAnswer": string, "expectedEvidence": string[] }] (5-6) }.',
-      "For each SoW question, `suggestedAnswer` is the anticipated answer inferred from the research/profile (the RM validates it with the client) and `expectedEvidence` lists the corroborating documents.",
+      prepResponseSpec(),
     ].join("\n");
 
     const input = [
@@ -593,48 +591,13 @@ async function runPrepJob(
       maxTokens: 8000, // big nested JSON — avoid truncation
     });
 
-    let pack: Pick<PrepPack, "marketRead" | "coldCall" | "sourceOfWealth">;
-    try {
-      const s = text.indexOf("{");
-      const e = text.lastIndexOf("}");
-      const raw = JSON.parse(s >= 0 && e >= 0 ? text.slice(s, e + 1) : text) as Record<string, any>;
-      const cc = (raw.coldCall ?? {}) as Record<string, any>;
-      const sow = (raw.sourceOfWealth ?? {}) as Record<string, any>;
-      const strArr = (v: unknown): string[] =>
-        Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-      pack = {
-        marketRead: typeof raw.marketRead === "string" ? raw.marketRead : "",
-        coldCall: {
-          opener: typeof cc.opener === "string" ? cc.opener : "",
-          talkingPoints: strArr(cc.talkingPoints),
-          anticipatedObjections: Array.isArray(cc.anticipatedObjections)
-            ? cc.anticipatedObjections
-                .map((o: Record<string, any>) => ({
-                  objection: typeof o?.objection === "string" ? o.objection : "",
-                  response: typeof o?.response === "string" ? o.response : "",
-                }))
-                .filter((o: { objection: string }) => o.objection.trim().length > 0)
-            : [],
-        },
-        sourceOfWealth: {
-          likelyCategories: strArr(sow.likelyCategories),
-          questions: Array.isArray(sow.questions)
-            ? sow.questions
-                .map((q: Record<string, any>) => ({
-                  question: typeof q?.question === "string" ? q.question : "",
-                  why: typeof q?.why === "string" ? q.why : "",
-                  suggestedAnswer: typeof q?.suggestedAnswer === "string" ? q.suggestedAnswer : "",
-                  expectedEvidence: strArr(q?.expectedEvidence),
-                }))
-                .filter((q: { question: string }) => q.question.trim().length > 0)
-            : [],
-        },
-      };
-    } catch (parseErr) {
-      logger.error({ parseErr, jobId, sample: text.slice(0, 300) }, "Failed to parse prep JSON");
+    const parsed = parsePrepResponse(text);
+    if (!parsed) {
+      logger.error({ jobId, sample: text.slice(0, 300) }, "Failed to parse prep JSON");
       await fail(`parse_failed len=${text.length}`);
       return;
     }
+    const pack = parsed;
 
     if (!pack.marketRead.trim() && pack.sourceOfWealth.questions.length === 0) {
       await fail("empty_pack");

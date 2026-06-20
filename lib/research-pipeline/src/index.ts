@@ -14,6 +14,7 @@ export {
   claudeWriterModel,
 } from "./write/anthropic";
 export { draft, type DraftOptions, type DraftResult } from "./write/draft";
+export { prepResponseSpec, parsePrepResponse, type ParsedPrep } from "./write/prepSchema";
 
 // Robust retrieval — DataForSEO + Jina
 export { retrieve, retrievalConfigured, type RetrieveOptions } from "./sources/retrieve";
