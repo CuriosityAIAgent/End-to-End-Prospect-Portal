@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   Sparkles, Loader2, AlertCircle, ShieldCheck, ShieldAlert,
   Phone, ScrollText, Compass, ExternalLink, FileText, Check, Gauge, Layers,
-  Mail, Copy, Newspaper,
+  Mail, Copy, Newspaper, HelpCircle,
 } from "lucide-react";
 import type { MarketRead, Approach, ColdCallScript } from "@workspace/research-pipeline/types";
 
@@ -196,44 +196,54 @@ function ReadSection({ read, fallback }: { read?: MarketRead; fallback: string }
     );
   }
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       <div className="flex items-center gap-2"><Compass className="w-4 h-4" style={{ color: ACCENT }} /><SectionTitle>Our read</SectionTitle></div>
+
+      {/* Headline — set apart in a tinted band so it lands first */}
       {read.headline.trim() && (
-        <p className="text-[19px] leading-snug" style={{ fontFamily: SERIF, color: INK }}>{read.headline}</p>
+        <div className="border-l-2 pl-4 py-1" style={{ borderColor: ACCENT }}>
+          <p className="text-[18px] leading-snug" style={{ fontFamily: SERIF, color: INK }}>{read.headline}</p>
+        </div>
       )}
+
+      {/* Key facts — scannable boxes, one fact each */}
       {read.keyFacts.length > 0 && (
-        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {read.keyFacts.map((f, i) => (
-            <div key={i} className="flex gap-2 text-[14px] leading-snug pl-4 relative">
-              <span className="absolute left-0" style={{ color: ACCENT }}>—</span>
-              <dt className="font-medium shrink-0" style={{ color: INK }}>{f.label}:</dt>
-              <dd style={{ color: "#4A4A4A" }}>{f.value}</dd>
+            <div key={i} className="border rounded-md px-3.5 py-2.5" style={{ borderColor: BORDER, background: "#FBFAF7" }}>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] mb-0.5" style={{ color: ACCENT }}>{f.label}</div>
+              <div className="text-[14px] leading-snug" style={{ color: INK }}>{f.value}</div>
             </div>
           ))}
-        </dl>
+        </div>
       )}
+
+      {/* Themes — each its own card with an accent spine and an airy fact list */}
       {read.themes.length > 0 && (
-        <div className="space-y-2 pt-1">
-          {read.themes.map((t, i) => (
-            <details key={t.id} open={i === 0} className="border-t pt-2" style={{ borderColor: BORDER }}>
-              <summary className="cursor-pointer select-none flex items-baseline gap-2">
-                <span className="text-[15px] font-medium" style={{ color: INK }}>{t.heading}</span>
-                <span className="text-sm" style={{ color: "#7A7A6F" }}>{t.takeaway}</span>
-              </summary>
-              {t.facts.length > 0 && (
-                <ul className="mt-2 space-y-1.5">
-                  {t.facts.map((f, j) => (
-                    <li key={j} className="text-[14px] leading-[1.5] pl-4 relative" style={{ color: INK }}>
-                      <span className="absolute left-0" style={{ color: ACCENT }}>—</span>
-                      {f.text}
-                      {f.basis === "inference" && (
-                        <span className="ml-1.5 text-[10px] uppercase tracking-wider align-middle" style={{ color: "#9A7B00" }}>· inferred</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </details>
+        <div className="space-y-3">
+          {read.themes.map((t) => (
+            <div key={t.id} className="border rounded-md overflow-hidden flex" style={{ borderColor: BORDER }}>
+              <div className="w-1 shrink-0" style={{ background: ACCENT }} />
+              <div className="flex-1 p-4">
+                <div className="mb-2.5">
+                  <h4 className="text-[15px] font-semibold" style={{ color: INK }}>{t.heading}</h4>
+                  {t.takeaway && <p className="text-[13px] leading-snug mt-0.5" style={{ color: "#7A7A6F" }}>{t.takeaway}</p>}
+                </div>
+                {t.facts.length > 0 && (
+                  <ul className="space-y-2">
+                    {t.facts.map((f, j) => (
+                      <li key={j} className="text-[14px] leading-[1.5] pl-4 relative" style={{ color: INK }}>
+                        <span className="absolute left-0 top-[0.45em] w-1.5 h-1.5 rounded-full" style={{ background: ACCENT }} />
+                        {f.text}
+                        {f.basis === "inference" && (
+                          <span className="ml-1.5 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full border align-middle" style={{ color: "#9A7B00", borderColor: "#E4D8A8", background: "#FCF8E8" }}>inferred</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -678,21 +688,45 @@ export function ProspectPrepPanel({
                   ))}
                 </div>
               )}
-              <ol className="space-y-5">
+              <ol className="space-y-4">
                 {shown.sourceOfWealth.questions.map((q, i) => (
-                  <li key={i} className="space-y-1.5 border-t pt-4" style={{ borderColor: BORDER }}>
-                    <p className="text-[16px] leading-snug font-medium" style={{ color: INK }}>{i + 1}. {q.question}</p>
-                    {q.why && <p className="text-xs" style={{ color: "#7A7A6F" }}>Why it matters: {q.why}</p>}
+                  <li key={i} className="border rounded-md p-5" style={{ borderColor: BORDER, background: PAPER }}>
+                    {/* The question */}
+                    <div className="flex gap-3">
+                      <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-semibold" style={{ background: ACCENT, color: "#fff" }}>{i + 1}</span>
+                      <p className="text-[16px] leading-snug font-medium pt-0.5" style={{ color: INK }}>{q.question}</p>
+                    </div>
+
+                    {/* Likely answer — the standout: highlighted box */}
                     {q.suggestedAnswer && (
-                      <p className="text-sm leading-relaxed" style={{ color: "#4A4A4A" }}>
-                        <span className="font-medium" style={{ color: ACCENT }}>Likely answer (validate): </span>{q.suggestedAnswer}
-                      </p>
+                      <div className="mt-3 rounded-md border-l-2 px-3.5 py-2.5" style={{ borderColor: ACCENT, background: "rgba(14,156,119,0.06)" }}>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.12em] mb-1" style={{ color: ACCENT }}>Likely answer · validate with client</div>
+                        <p className="text-[14px] leading-relaxed" style={{ color: INK }}>{q.suggestedAnswer}</p>
+                      </div>
                     )}
-                    {q.expectedEvidence.length > 0 && (
-                      <p className="text-xs flex items-start gap-1.5" style={{ color: "#7A7A6F" }}>
-                        <FileText className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                        <span>Evidence: {q.expectedEvidence.join("; ")}</span>
-                      </p>
+
+                    {/* Why it matters + Evidence — coded metadata */}
+                    {(q.why || q.expectedEvidence.length > 0) && (
+                      <div className="mt-3 space-y-2">
+                        {q.why && (
+                          <div className="flex items-start gap-2 text-[12px]">
+                            <span className="inline-flex items-center gap-1 shrink-0 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: "#8A6D00", background: "#FCF8E8", border: "1px solid #ECE2B8" }}>
+                              <HelpCircle className="w-3 h-3" /> Why
+                            </span>
+                            <span className="leading-snug pt-0.5" style={{ color: "#6B6B60" }}>{q.why}</span>
+                          </div>
+                        )}
+                        {q.expectedEvidence.length > 0 && (
+                          <div className="flex items-start gap-2 flex-wrap">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded mt-0.5" style={{ color: ACCENT, background: "rgba(14,156,119,0.08)", border: "1px solid rgba(14,156,119,0.25)" }}>
+                              <FileText className="w-3 h-3" /> Evidence
+                            </span>
+                            {q.expectedEvidence.map((e, k) => (
+                              <span key={k} className="inline-flex items-center text-[11px] px-2 py-0.5 border rounded-full" style={{ borderColor: BORDER, color: "#5A5A50", background: "#FBFAF7" }}>{e}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </li>
                 ))}
