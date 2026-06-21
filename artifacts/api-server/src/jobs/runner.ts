@@ -6,7 +6,7 @@
 // leave and come back, and a restart can't leave a job spinning forever.
 // ============================================================================
 
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, jobsTable, type Job } from "@workspace/db";
 import { logger } from "../lib/logger";
 
@@ -53,6 +53,40 @@ export async function createJob(kind: string, prospectId: number): Promise<Job> 
     .values({ kind, prospectId, status: "queued", progress: 0 })
     .returning();
   return row;
+}
+
+/**
+ * Atomically enqueue at most one ACTIVE job per (prospect, kind). A transaction-
+ * scoped Postgres advisory lock keyed on (kind, prospect) serialises concurrent
+ * enqueues for the same prospect, so the "is there an active job?" check and the
+ * insert can't race — without relying on a DB index/constraint. Returns the
+ * existing active job (created=false) or the newly created one (created=true).
+ */
+export async function enqueueUniqueJob(
+  kind: string,
+  prospectId: number,
+): Promise<{ job: Job; created: boolean }> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`${kind}:${prospectId}`}))`);
+    const [existing] = await tx
+      .select()
+      .from(jobsTable)
+      .where(
+        and(
+          eq(jobsTable.kind, kind),
+          eq(jobsTable.prospectId, prospectId),
+          inArray(jobsTable.status, ACTIVE_STATUSES),
+        ),
+      )
+      .orderBy(desc(jobsTable.createdAt))
+      .limit(1);
+    if (existing) return { job: existing, created: false };
+    const [row] = await tx
+      .insert(jobsTable)
+      .values({ kind, prospectId, status: "queued", progress: 0 })
+      .returning();
+    return { job: row, created: true };
+  });
 }
 
 /** The most recent non-terminal job for (kind, prospect) — used for idempotency

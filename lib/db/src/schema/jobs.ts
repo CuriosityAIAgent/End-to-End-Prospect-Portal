@@ -8,8 +8,12 @@ import { z } from "zod/v4";
 // partial result (the read) be revealed before verification finishes.
 //
 // State machine:
-//   queued → researching → drafting → verifying → done
+//   queued → researching → drafting → estimating → verifying → done
 //   (any) → failed
+// "At most one active job per (prospect, kind)" is enforced at enqueue time by a
+// transaction-scoped advisory lock (see enqueueUniqueJob in jobs/runner.ts), not
+// a DB constraint — so there's no migration that can fail on pre-existing
+// duplicate rows.
 export const jobsTable = pgTable("jobs", {
   id: uuid("id").primaryKey().defaultRandom(),
   kind: text("kind").notNull(), // "prospect_prep" | "prospect_briefing"

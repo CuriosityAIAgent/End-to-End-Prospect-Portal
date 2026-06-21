@@ -80,11 +80,27 @@ function coerceRange(v: unknown, currency: string): MoneyRange | undefined {
   const high = num(r.high);
   if (low === undefined && base === undefined && high === undefined) return undefined;
   const b = base ?? low ?? high ?? 0;
+  const cur = typeof r.currency === "string" ? r.currency : currency;
+
+  // Always return low <= base <= high. Two cases for a base outside the bounds:
+  // - low and high form a REAL interval (both given, distinct): trust the bounds
+  //   and CLAMP the base into them, so a wild outlier base (e.g. low=10M,
+  //   high=20M, base=10B) can't inflate the range by orders of magnitude.
+  // - bounds are degenerate/partial (missing one, or low==high): there is no real
+  //   interval, so the base carries the signal — INCLUDE it (e.g. a loss given as
+  //   low=high=0, base=-5M becomes {-5M,-5M,0}, preserved rather than erased).
+  if (low !== undefined && high !== undefined && low !== high) {
+    const lo = Math.min(low, high);
+    const hi = Math.max(low, high);
+    return { low: lo, base: Math.min(Math.max(b, lo), hi), high: hi, currency: cur };
+  }
+  const lo0 = low ?? b;
+  const hi0 = high ?? b;
   return {
-    low: low ?? b,
+    low: Math.min(lo0, b, hi0),
     base: b,
-    high: high ?? b,
-    currency: typeof r.currency === "string" ? r.currency : currency,
+    high: Math.max(lo0, b, hi0),
+    currency: cur,
   };
 }
 
@@ -216,12 +232,45 @@ function reconcile(estimate: WealthEstimate, validation: WealthValidation): Weal
       confidence: v.suggestedConfidence ?? l.confidence,
     };
   });
-  const surviving = annotated.filter((l) => {
+  const isRejected = (l: AssumptionLine): boolean => {
     const v = byId.get(l.id);
-    return !(v && (v.verdict === "ungrounded" || v.verdict === "implausible"));
-  });
+    return !!v && (v.verdict === "ungrounded" || v.verdict === "implausible");
+  };
+
+  // Drop the rejected lines; a surviving reported anchor (or surviving grounded
+  // components) still drives the recomputed estimate.
+  const reportedLines = annotated.filter((l) => l.category === "reported_net_worth");
+  const surviving = annotated.filter((l) => !isRejected(l));
 
   let { total, liquid, weakFraction } = computeEstimate(surviving, estimate.currency);
+
+  // Withhold ONLY when the validator rejected every reported figure AND no
+  // COMPUTABLE value line survives to fall back on — i.e. nothing computeEstimate
+  // would actually count (a role_comp without annual/years, or an asset without
+  // amount, contributes nothing). If a real component survives we keep its
+  // (partial) estimate, even if it centres on zero.
+  const isComputableValue = (l: AssumptionLine): boolean =>
+    ((l.category === "role_comp" || l.category === "carry_equity") &&
+      !!l.annual &&
+      typeof l.years === "number" &&
+      l.years > 0) ||
+    ((l.category === "liquidity_event" || l.category === "known_asset") && !!l.amount);
+  const survivingValueLines = surviving.filter(isComputableValue);
+  const lostAllReported = reportedLines.length > 0 && reportedLines.every(isRejected);
+  if (lostAllReported && survivingValueLines.length === 0) {
+    const zero: MoneyRange = { low: 0, base: 0, high: 0, currency: estimate.currency };
+    return {
+      ...estimate,
+      assumptions: annotated,
+      totalNetWorth: zero,
+      liquidNetWorth: zero,
+      overallConfidence: "low",
+      refused: true,
+      refusalReason:
+        "The reported net-worth figure could not be independently corroborated, so no defensible estimate is shown.",
+      validation,
+    };
+  }
   if (validation.rangeAdvice === "widen" || validation.overConfident) {
     total = widenRange(total, 1.25);
     liquid = widenRange(liquid, 1.25);

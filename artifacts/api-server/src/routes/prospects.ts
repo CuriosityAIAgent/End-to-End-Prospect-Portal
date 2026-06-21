@@ -18,8 +18,7 @@ import {
 } from "@workspace/research-pipeline";
 import { logger } from "../lib/logger";
 import {
-  createJob,
-  findActiveJob,
+  enqueueUniqueJob,
   latestJob,
   schedule,
   serializeJob,
@@ -487,15 +486,13 @@ router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
     return;
   }
 
-  // Idempotency: a double-click shouldn't spawn a second run.
-  const existing = await findActiveJob("prospect_prep", prospect.id);
-  if (existing) {
-    res.status(202).json({ jobId: existing.id });
-    return;
+  // Atomically enqueue at most one active job per prospect (advisory-lock
+  // transaction) — a double-click or retry returns the in-flight job instead of
+  // starting a duplicate run.
+  const { job, created } = await enqueueUniqueJob("prospect_prep", prospect.id);
+  if (created) {
+    schedule(() => runPrepJob(job.id, prospect.id, depth));
   }
-
-  const job = await createJob("prospect_prep", prospect.id);
-  schedule(() => runPrepJob(job.id, prospect.id, depth));
   res.status(202).json({ jobId: job.id });
 });
 
@@ -705,7 +702,14 @@ async function runPrepJob(
       generatedAt: new Date().toISOString(),
     };
 
-    const prospectData = (prospect.data ?? {}) as Record<string, unknown>;
+    // Re-read the prospect's data right before writing: the banker may have
+    // edited notes / approach usage during the (long) run, and we must not
+    // clobber those with the snapshot taken when the job started.
+    const [current] = await db
+      .select({ data: prospectsTable.data })
+      .from(prospectsTable)
+      .where(eq(prospectsTable.id, prospectId));
+    const prospectData = (current?.data ?? prospect.data ?? {}) as Record<string, unknown>;
     await db
       .update(prospectsTable)
       .set({ data: { ...prospectData, prep } })
