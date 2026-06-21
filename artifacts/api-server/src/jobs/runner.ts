@@ -47,6 +47,11 @@ export function serializeJob(job: Job) {
   };
 }
 
+/** True for a Postgres unique-constraint violation (the active-job index). */
+export function isUniqueViolation(err: unknown): boolean {
+  return !!err && typeof err === "object" && (err as { code?: string }).code === "23505";
+}
+
 export async function createJob(kind: string, prospectId: number): Promise<Job> {
   const [row] = await db
     .insert(jobsTable)

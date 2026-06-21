@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, integer, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, jsonb, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -8,30 +9,40 @@ import { z } from "zod/v4";
 // partial result (the read) be revealed before verification finishes.
 //
 // State machine:
-//   queued → researching → drafting → verifying → done
+//   queued → researching → drafting → estimating → verifying → done
 //   (any) → failed
-export const jobsTable = pgTable("jobs", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  kind: text("kind").notNull(), // "prospect_prep" | "prospect_briefing"
-  prospectId: integer("prospect_id").notNull(),
-  status: text("status").notNull().default("queued"),
-  progress: integer("progress").notNull().default(0), // 0..100
-  stageDetail: text("stage_detail"),
-  // Partial result revealed mid-run (e.g. the drafted read while verify runs).
-  partial: jsonb("partial").$type<Record<string, unknown> | null>(),
-  // Final result on success (the full PrepPack).
-  result: jsonb("result").$type<Record<string, unknown> | null>(),
-  error: text("error"),
-  startedAt: timestamp("started_at", { withTimezone: true }),
-  // Bumped on every progress write; doubles as the liveness signal the boot-time
-  // recovery sweep uses to fail jobs orphaned by a restart.
-  heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
+export const jobsTable = pgTable(
+  "jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind").notNull(), // "prospect_prep" | "prospect_briefing"
+    prospectId: integer("prospect_id").notNull(),
+    status: text("status").notNull().default("queued"),
+    progress: integer("progress").notNull().default(0), // 0..100
+    stageDetail: text("stage_detail"),
+    // Partial result revealed mid-run (e.g. the drafted read while verify runs).
+    partial: jsonb("partial").$type<Record<string, unknown> | null>(),
+    // Final result on success (the full PrepPack).
+    result: jsonb("result").$type<Record<string, unknown> | null>(),
+    error: text("error"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    // Bumped on every progress write; doubles as the liveness signal the boot-time
+    // recovery sweep uses to fail jobs orphaned by a restart.
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => ({
+    // At most one ACTIVE job per (prospect, kind) — enforced in the DB so two
+    // concurrent enqueues can't both create a run (the app-level check races).
+    activeUnique: uniqueIndex("jobs_active_prospect_kind_uq")
+      .on(t.prospectId, t.kind)
+      .where(sql`status in ('queued','researching','drafting','estimating','verifying')`),
+  }),
+);
 
 export const insertJobSchema = createInsertSchema(jobsTable).omit({
   id: true,

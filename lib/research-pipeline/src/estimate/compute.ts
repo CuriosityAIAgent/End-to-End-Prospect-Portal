@@ -101,7 +101,9 @@ export function computeEstimate(lines: AssumptionLine[], currency: string): Comp
   // summing the components, which would double-count the same wealth (the bug
   // this guards against). The component lines instead inform the LIQUID estimate.
   // With no reported figure we build the total bottom-up from the components.
-  const reported = lines.filter((l) => l.category === "reported_net_worth" && l.amount);
+  const reported = lines.filter(
+    (l) => l.category === "reported_net_worth" && l.amount && l.amount.high > 0,
+  );
 
   let totalLow: number;
   let totalBase: number;
@@ -127,7 +129,9 @@ export function computeEstimate(lines: AssumptionLine[], currency: string): Comp
     (l) => l.basis === "benchmark-inferred" || l.basis === "assumption",
   ).length;
   const weakFraction = lines.length ? weak / lines.length : 1;
-  // Up to +50% widening when the ledger leans on inference.
+  // Up to +50% widening here when the ledger leans on inference. (Note: the
+  // validator's reconcile step may widen once more by ×1.25 when it judges the
+  // estimate over-confident, so a weak + flagged ledger can widen beyond +50%.)
   const widen = 1 + weakFraction * 0.5;
 
   // Net worth floors at zero (losses can drive the raw figure negative).

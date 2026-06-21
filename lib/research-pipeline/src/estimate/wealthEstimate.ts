@@ -80,10 +80,18 @@ function coerceRange(v: unknown, currency: string): MoneyRange | undefined {
   const high = num(r.high);
   if (low === undefined && base === undefined && high === undefined) return undefined;
   const b = base ?? low ?? high ?? 0;
+  const lo0 = low ?? b;
+  const hi0 = high ?? b;
+  // Treat low/high as the intended range bounds (swap-tolerant) and clamp the
+  // base point estimate inside them, so a mis-ordered reply (e.g. base above
+  // high) can never reach the display as low<=base<=high is guaranteed.
+  const lo = Math.min(lo0, hi0);
+  const hi = Math.max(lo0, hi0);
+  const mid = Math.min(Math.max(b, lo), hi);
   return {
-    low: low ?? b,
-    base: b,
-    high: high ?? b,
+    low: lo,
+    base: mid,
+    high: hi,
     currency: typeof r.currency === "string" ? r.currency : currency,
   };
 }
@@ -217,6 +225,11 @@ function reconcile(estimate: WealthEstimate, validation: WealthValidation): Weal
     };
   });
   const surviving = annotated.filter((l) => {
+    // Never drop the top-down anchor: the prompt tells the model NOT to also
+    // itemise the components when a reported total exists, so dropping it would
+    // collapse the total to a tiny bottom-up figure (or 0). A validator concern
+    // on the anchor lowers confidence (below), it doesn't delete the estimate.
+    if (l.category === "reported_net_worth") return true;
     const v = byId.get(l.id);
     return !(v && (v.verdict === "ungrounded" || v.verdict === "implausible"));
   });
