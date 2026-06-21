@@ -101,9 +101,10 @@ export function computeEstimate(lines: AssumptionLine[], currency: string): Comp
   // summing the components, which would double-count the same wealth (the bug
   // this guards against). The component lines instead inform the LIQUID estimate.
   // With no reported figure we build the total bottom-up from the components.
-  const reported = lines.filter(
-    (l) => l.category === "reported_net_worth" && l.amount && l.amount.high > 0,
-  );
+  // Anchor on ANY reported total, including a non-positive one: a genuinely
+  // zero/negative reported net worth (e.g. a bankrupt prospect) should floor the
+  // estimate to ~0, NOT be dropped so the bottom-up comp model overstates them.
+  const reported = lines.filter((l) => l.category === "reported_net_worth" && l.amount);
 
   let totalLow: number;
   let totalBase: number;
