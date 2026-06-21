@@ -1,5 +1,4 @@
-import { pgTable, uuid, text, integer, jsonb, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
+import { pgTable, uuid, text, integer, jsonb, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -11,38 +10,35 @@ import { z } from "zod/v4";
 // State machine:
 //   queued → researching → drafting → estimating → verifying → done
 //   (any) → failed
-export const jobsTable = pgTable(
-  "jobs",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    kind: text("kind").notNull(), // "prospect_prep" | "prospect_briefing"
-    prospectId: integer("prospect_id").notNull(),
-    status: text("status").notNull().default("queued"),
-    progress: integer("progress").notNull().default(0), // 0..100
-    stageDetail: text("stage_detail"),
-    // Partial result revealed mid-run (e.g. the drafted read while verify runs).
-    partial: jsonb("partial").$type<Record<string, unknown> | null>(),
-    // Final result on success (the full PrepPack).
-    result: jsonb("result").$type<Record<string, unknown> | null>(),
-    error: text("error"),
-    startedAt: timestamp("started_at", { withTimezone: true }),
-    // Bumped on every progress write; doubles as the liveness signal the boot-time
-    // recovery sweep uses to fail jobs orphaned by a restart.
-    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow()
-      .$onUpdate(() => new Date()),
-  },
-  (t) => ({
-    // At most one ACTIVE job per (prospect, kind) — enforced in the DB so two
-    // concurrent enqueues can't both create a run (the app-level check races).
-    activeUnique: uniqueIndex("jobs_active_prospect_kind_uq")
-      .on(t.prospectId, t.kind)
-      .where(sql`status in ('queued','researching','drafting','estimating','verifying')`),
-  }),
-);
+// NOTE: a partial UNIQUE index on (prospect_id, kind) over the active statuses
+// enforces "at most one active job per prospect" (closes the enqueue race). It
+// is NOT declared here / created by db:push, because creating a unique index can
+// fail on a DB that already holds duplicate active rows, and clearing those is
+// only safe when the worker is offline. Instead it's created at app boot in
+// ensureJobIndex(), right after recoverStaleJobs() has failed every orphaned
+// active job — see jobs/runner.ts.
+export const jobsTable = pgTable("jobs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  kind: text("kind").notNull(), // "prospect_prep" | "prospect_briefing"
+  prospectId: integer("prospect_id").notNull(),
+  status: text("status").notNull().default("queued"),
+  progress: integer("progress").notNull().default(0), // 0..100
+  stageDetail: text("stage_detail"),
+  // Partial result revealed mid-run (e.g. the drafted read while verify runs).
+  partial: jsonb("partial").$type<Record<string, unknown> | null>(),
+  // Final result on success (the full PrepPack).
+  result: jsonb("result").$type<Record<string, unknown> | null>(),
+  error: text("error"),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  // Bumped on every progress write; doubles as the liveness signal the boot-time
+  // recovery sweep uses to fail jobs orphaned by a restart.
+  heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
 
 export const insertJobSchema = createInsertSchema(jobsTable).omit({
   id: true,

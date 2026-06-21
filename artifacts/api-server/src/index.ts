@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { recoverStaleJobs } from "./jobs/runner";
+import { recoverStaleJobs, ensureJobIndex } from "./jobs/runner";
 
 const rawPort = process.env["PORT"];
 
@@ -19,7 +19,10 @@ if (Number.isNaN(port) || port <= 0) {
 async function start(): Promise<void> {
   // Recover jobs orphaned by the previous process BEFORE we accept requests —
   // otherwise a brand-new job created during the sweep could be wrongly failed.
+  // Then ensure the active-job unique index (now that no duplicate active rows
+  // remain, its creation can't fail).
   await recoverStaleJobs();
+  await ensureJobIndex();
 
   app.listen(port, (err) => {
     if (err) {

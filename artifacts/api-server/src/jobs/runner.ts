@@ -6,7 +6,7 @@
 // leave and come back, and a restart can't leave a job spinning forever.
 // ============================================================================
 
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, jobsTable, type Job } from "@workspace/db";
 import { logger } from "../lib/logger";
 
@@ -164,5 +164,24 @@ export async function recoverStaleJobs(): Promise<void> {
     }
   } catch (err) {
     logger.warn({ err }, "Job recovery sweep skipped (DB unavailable?)");
+  }
+}
+
+/**
+ * Ensure the partial UNIQUE index that makes "one active job per (prospect, kind)"
+ * atomic. Created here (not via db:push) and ONLY after recoverStaleJobs() has
+ * cleared every orphaned active job, so there are no duplicate active rows to
+ * make the unique-index creation fail. Idempotent (IF NOT EXISTS); safe because
+ * at boot the worker is offline. No-ops if the DB is unavailable.
+ */
+export async function ensureJobIndex(): Promise<void> {
+  try {
+    await db.execute(sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS jobs_active_prospect_kind_uq
+      ON jobs (prospect_id, kind)
+      WHERE status IN ('queued','researching','drafting','estimating','verifying')
+    `);
+  } catch (err) {
+    logger.warn({ err }, "Could not ensure active-job unique index");
   }
 }
