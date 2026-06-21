@@ -10,13 +10,10 @@ import { z } from "zod/v4";
 // State machine:
 //   queued → researching → drafting → estimating → verifying → done
 //   (any) → failed
-// NOTE: a partial UNIQUE index on (prospect_id, kind) over the active statuses
-// enforces "at most one active job per prospect" (closes the enqueue race). It
-// is NOT declared here / created by db:push, because creating a unique index can
-// fail on a DB that already holds duplicate active rows, and clearing those is
-// only safe when the worker is offline. Instead it's created at app boot in
-// ensureJobIndex(), right after recoverStaleJobs() has failed every orphaned
-// active job — see jobs/runner.ts.
+// "At most one active job per (prospect, kind)" is enforced at enqueue time by a
+// transaction-scoped advisory lock (see enqueueUniqueJob in jobs/runner.ts), not
+// a DB constraint — so there's no migration that can fail on pre-existing
+// duplicate rows.
 export const jobsTable = pgTable("jobs", {
   id: uuid("id").primaryKey().defaultRandom(),
   kind: text("kind").notNull(), // "prospect_prep" | "prospect_briefing"

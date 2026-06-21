@@ -47,17 +47,46 @@ export function serializeJob(job: Job) {
   };
 }
 
-/** True for a Postgres unique-constraint violation (the active-job index). */
-export function isUniqueViolation(err: unknown): boolean {
-  return !!err && typeof err === "object" && (err as { code?: string }).code === "23505";
-}
-
 export async function createJob(kind: string, prospectId: number): Promise<Job> {
   const [row] = await db
     .insert(jobsTable)
     .values({ kind, prospectId, status: "queued", progress: 0 })
     .returning();
   return row;
+}
+
+/**
+ * Atomically enqueue at most one ACTIVE job per (prospect, kind). A transaction-
+ * scoped Postgres advisory lock keyed on (kind, prospect) serialises concurrent
+ * enqueues for the same prospect, so the "is there an active job?" check and the
+ * insert can't race — without relying on a DB index/constraint. Returns the
+ * existing active job (created=false) or the newly created one (created=true).
+ */
+export async function enqueueUniqueJob(
+  kind: string,
+  prospectId: number,
+): Promise<{ job: Job; created: boolean }> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`${kind}:${prospectId}`}))`);
+    const [existing] = await tx
+      .select()
+      .from(jobsTable)
+      .where(
+        and(
+          eq(jobsTable.kind, kind),
+          eq(jobsTable.prospectId, prospectId),
+          inArray(jobsTable.status, ACTIVE_STATUSES),
+        ),
+      )
+      .orderBy(desc(jobsTable.createdAt))
+      .limit(1);
+    if (existing) return { job: existing, created: false };
+    const [row] = await tx
+      .insert(jobsTable)
+      .values({ kind, prospectId, status: "queued", progress: 0 })
+      .returning();
+    return { job: row, created: true };
+  });
 }
 
 /** The most recent non-terminal job for (kind, prospect) — used for idempotency
@@ -164,24 +193,5 @@ export async function recoverStaleJobs(): Promise<void> {
     }
   } catch (err) {
     logger.warn({ err }, "Job recovery sweep skipped (DB unavailable?)");
-  }
-}
-
-/**
- * Ensure the partial UNIQUE index that makes "one active job per (prospect, kind)"
- * atomic. Created here (not via db:push) and ONLY after recoverStaleJobs() has
- * cleared every orphaned active job, so there are no duplicate active rows to
- * make the unique-index creation fail. Idempotent (IF NOT EXISTS); safe because
- * at boot the worker is offline. No-ops if the DB is unavailable.
- */
-export async function ensureJobIndex(): Promise<void> {
-  try {
-    await db.execute(sql`
-      CREATE UNIQUE INDEX IF NOT EXISTS jobs_active_prospect_kind_uq
-      ON jobs (prospect_id, kind)
-      WHERE status IN ('queued','researching','drafting','estimating','verifying')
-    `);
-  } catch (err) {
-    logger.warn({ err }, "Could not ensure active-job unique index");
   }
 }

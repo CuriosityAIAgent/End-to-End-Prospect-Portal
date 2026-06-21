@@ -238,11 +238,17 @@ function reconcile(estimate: WealthEstimate, validation: WealthValidation): Weal
   let { total, liquid, weakFraction } = computeEstimate(surviving, estimate.currency);
 
   // Withhold ONLY when the validator rejected every reported figure AND no
-  // value lines (comp / events / assets) survive to fall back on — i.e. there is
-  // genuinely nothing left to estimate from. If any grounded component survives
-  // we keep its (partial) estimate, even if it happens to centre on zero.
-  const VALUE_CATEGORIES = new Set(["role_comp", "carry_equity", "liquidity_event", "known_asset"]);
-  const survivingValueLines = surviving.filter((l) => VALUE_CATEGORIES.has(l.category));
+  // COMPUTABLE value line survives to fall back on — i.e. nothing computeEstimate
+  // would actually count (a role_comp without annual/years, or an asset without
+  // amount, contributes nothing). If a real component survives we keep its
+  // (partial) estimate, even if it centres on zero.
+  const isComputableValue = (l: AssumptionLine): boolean =>
+    ((l.category === "role_comp" || l.category === "carry_equity") &&
+      !!l.annual &&
+      typeof l.years === "number" &&
+      l.years > 0) ||
+    ((l.category === "liquidity_event" || l.category === "known_asset") && !!l.amount);
+  const survivingValueLines = surviving.filter(isComputableValue);
   const lostAllReported = reportedLines.length > 0 && reportedLines.every(isRejected);
   if (lostAllReported && survivingValueLines.length === 0) {
     const zero: MoneyRange = { low: 0, base: 0, high: 0, currency: estimate.currency };

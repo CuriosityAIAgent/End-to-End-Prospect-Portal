@@ -18,9 +18,7 @@ import {
 } from "@workspace/research-pipeline";
 import { logger } from "../lib/logger";
 import {
-  createJob,
-  findActiveJob,
-  isUniqueViolation,
+  enqueueUniqueJob,
   latestJob,
   schedule,
   serializeJob,
@@ -488,29 +486,13 @@ router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
     return;
   }
 
-  // Idempotency: a double-click shouldn't spawn a second run. The app-level
-  // check handles the common case; the DB unique index (and the catch below)
-  // closes the race where two requests both pass this check.
-  const existing = await findActiveJob("prospect_prep", prospect.id);
-  if (existing) {
-    res.status(202).json({ jobId: existing.id });
-    return;
+  // Atomically enqueue at most one active job per prospect (advisory-lock
+  // transaction) — a double-click or retry returns the in-flight job instead of
+  // starting a duplicate run.
+  const { job, created } = await enqueueUniqueJob("prospect_prep", prospect.id);
+  if (created) {
+    schedule(() => runPrepJob(job.id, prospect.id, depth));
   }
-
-  let job;
-  try {
-    job = await createJob("prospect_prep", prospect.id);
-  } catch (err) {
-    if (isUniqueViolation(err)) {
-      const active = await findActiveJob("prospect_prep", prospect.id);
-      if (active) {
-        res.status(202).json({ jobId: active.id });
-        return;
-      }
-    }
-    throw err;
-  }
-  schedule(() => runPrepJob(job.id, prospect.id, depth));
   res.status(202).json({ jobId: job.id });
 });
 
