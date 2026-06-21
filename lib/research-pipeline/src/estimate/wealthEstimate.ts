@@ -224,15 +224,34 @@ function reconcile(estimate: WealthEstimate, validation: WealthValidation): Weal
       confidence: v.suggestedConfidence ?? l.confidence,
     };
   });
-  const surviving = annotated.filter((l) => {
-    // Never drop the top-down anchor: the prompt tells the model NOT to also
-    // itemise the components when a reported total exists, so dropping it would
-    // collapse the total to a tiny bottom-up figure (or 0). A validator concern
-    // on the anchor lowers confidence (below), it doesn't delete the estimate.
-    if (l.category === "reported_net_worth") return true;
+  const isRejected = (l: AssumptionLine): boolean => {
     const v = byId.get(l.id);
-    return !(v && (v.verdict === "ungrounded" || v.verdict === "implausible"));
-  });
+    return !!v && (v.verdict === "ungrounded" || v.verdict === "implausible");
+  };
+
+  // If the estimate anchored on a reported total and the validator rejected ALL
+  // the reported figures, our top-down basis is gone. Don't anchor on a number
+  // the safety net rejected (would stay overstated), and don't silently fall to
+  // a thin bottom-up figure (the model was told not to itemise the components) —
+  // withhold the estimate instead.
+  const reportedLines = annotated.filter((l) => l.category === "reported_net_worth");
+  if (reportedLines.length > 0 && reportedLines.every(isRejected)) {
+    const zero: MoneyRange = { low: 0, base: 0, high: 0, currency: estimate.currency };
+    return {
+      ...estimate,
+      assumptions: annotated,
+      totalNetWorth: zero,
+      liquidNetWorth: zero,
+      overallConfidence: "low",
+      refused: true,
+      refusalReason:
+        "The reported net-worth figure could not be independently corroborated, so no defensible estimate is shown.",
+      validation,
+    };
+  }
+
+  // Otherwise drop the rejected lines (any surviving reported anchor still wins).
+  const surviving = annotated.filter((l) => !isRejected(l));
 
   let { total, liquid, weakFraction } = computeEstimate(surviving, estimate.currency);
   if (validation.rangeAdvice === "widen" || validation.overConfident) {

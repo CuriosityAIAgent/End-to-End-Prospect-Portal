@@ -8,7 +8,7 @@
     "build:deploy": "pnpm --filter @workspace/sow-tool run build && pnpm --filter @workspace/api-server run build",
     "db:push": "pnpm --filter @workspace/db run push",
     "start": "node artifacts/api-server/dist/index.mjs",
-    "start:deploy": "sh -c 'if [ -n \"$DATABASE_URL\" ]; then pnpm run db:push; else echo \"[start] DATABASE_URL not set — skipping db:push; DB endpoints will 500 until it is provisioned\"; fi; node artifacts/api-server/dist/index.mjs'",
+    "start:deploy": "sh -c 'if [ -n \"$DATABASE_URL\" ]; then pnpm --filter @workspace/db run cleanup-jobs; pnpm run db:push; else echo \"[start] DATABASE_URL not set — skipping db:push; DB endpoints will 500 until it is provisioned\"; fi; node artifacts/api-server/dist/index.mjs'",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
