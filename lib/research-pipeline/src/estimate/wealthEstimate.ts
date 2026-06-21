@@ -82,15 +82,16 @@ function coerceRange(v: unknown, currency: string): MoneyRange | undefined {
   const b = base ?? low ?? high ?? 0;
   const lo0 = low ?? b;
   const hi0 = high ?? b;
-  // Treat low/high as the intended range bounds (swap-tolerant) and clamp the
-  // base point estimate inside them, so a mis-ordered reply (e.g. base above
-  // high) can never reach the display as low<=base<=high is guaranteed.
-  const lo = Math.min(lo0, hi0);
-  const hi = Math.max(lo0, hi0);
-  const mid = Math.min(Math.max(b, lo), hi);
+  // Guarantee low <= base <= high by EXPANDING the bounds to include base (not
+  // clamping base away) — so a mis-ordered reply can't display base outside the
+  // range, while a legitimate out-of-bound base (e.g. a negative loss with
+  // low=high=0) is preserved rather than erased. base is one of the three
+  // values, so it always lands within [min, max].
+  const lo = Math.min(lo0, b, hi0);
+  const hi = Math.max(lo0, b, hi0);
   return {
     low: lo,
-    base: mid,
+    base: b,
     high: hi,
     currency: typeof r.currency === "string" ? r.currency : currency,
   };
