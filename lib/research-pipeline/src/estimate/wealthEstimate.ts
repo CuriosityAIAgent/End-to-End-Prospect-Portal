@@ -237,12 +237,14 @@ function reconcile(estimate: WealthEstimate, validation: WealthValidation): Weal
 
   let { total, liquid, weakFraction } = computeEstimate(surviving, estimate.currency);
 
-  // Withhold ONLY when the validator rejected every reported figure AND nothing
-  // substantive is left to fall back on (the model was told not to itemise the
-  // components when a reported total exists, so the bottom-up figure can be ~0).
-  // If grounded components survive, we keep their (partial) estimate instead.
+  // Withhold ONLY when the validator rejected every reported figure AND no
+  // value lines (comp / events / assets) survive to fall back on — i.e. there is
+  // genuinely nothing left to estimate from. If any grounded component survives
+  // we keep its (partial) estimate, even if it happens to centre on zero.
+  const VALUE_CATEGORIES = new Set(["role_comp", "carry_equity", "liquidity_event", "known_asset"]);
+  const survivingValueLines = surviving.filter((l) => VALUE_CATEGORIES.has(l.category));
   const lostAllReported = reportedLines.length > 0 && reportedLines.every(isRejected);
-  if (lostAllReported && total.base <= 0) {
+  if (lostAllReported && survivingValueLines.length === 0) {
     const zero: MoneyRange = { low: 0, base: 0, high: 0, currency: estimate.currency };
     return {
       ...estimate,
