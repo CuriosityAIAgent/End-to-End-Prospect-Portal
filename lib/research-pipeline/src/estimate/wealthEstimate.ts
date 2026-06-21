@@ -229,13 +229,19 @@ function reconcile(estimate: WealthEstimate, validation: WealthValidation): Weal
     return !!v && (v.verdict === "ungrounded" || v.verdict === "implausible");
   };
 
-  // If the estimate anchored on a reported total and the validator rejected ALL
-  // the reported figures, our top-down basis is gone. Don't anchor on a number
-  // the safety net rejected (would stay overstated), and don't silently fall to
-  // a thin bottom-up figure (the model was told not to itemise the components) —
-  // withhold the estimate instead.
+  // Drop the rejected lines; a surviving reported anchor (or surviving grounded
+  // components) still drives the recomputed estimate.
   const reportedLines = annotated.filter((l) => l.category === "reported_net_worth");
-  if (reportedLines.length > 0 && reportedLines.every(isRejected)) {
+  const surviving = annotated.filter((l) => !isRejected(l));
+
+  let { total, liquid, weakFraction } = computeEstimate(surviving, estimate.currency);
+
+  // Withhold ONLY when the validator rejected every reported figure AND nothing
+  // substantive is left to fall back on (the model was told not to itemise the
+  // components when a reported total exists, so the bottom-up figure can be ~0).
+  // If grounded components survive, we keep their (partial) estimate instead.
+  const lostAllReported = reportedLines.length > 0 && reportedLines.every(isRejected);
+  if (lostAllReported && total.base <= 0) {
     const zero: MoneyRange = { low: 0, base: 0, high: 0, currency: estimate.currency };
     return {
       ...estimate,
@@ -249,11 +255,6 @@ function reconcile(estimate: WealthEstimate, validation: WealthValidation): Weal
       validation,
     };
   }
-
-  // Otherwise drop the rejected lines (any surviving reported anchor still wins).
-  const surviving = annotated.filter((l) => !isRejected(l));
-
-  let { total, liquid, weakFraction } = computeEstimate(surviving, estimate.currency);
   if (validation.rangeAdvice === "widen" || validation.overConfident) {
     total = widenRange(total, 1.25);
     liquid = widenRange(liquid, 1.25);
