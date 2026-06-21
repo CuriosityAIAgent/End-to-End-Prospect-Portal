@@ -80,20 +80,27 @@ function coerceRange(v: unknown, currency: string): MoneyRange | undefined {
   const high = num(r.high);
   if (low === undefined && base === undefined && high === undefined) return undefined;
   const b = base ?? low ?? high ?? 0;
+  const cur = typeof r.currency === "string" ? r.currency : currency;
+
+  // Always return low <= base <= high. Two cases for a base outside the bounds:
+  // - low and high form a REAL interval (both given, distinct): trust the bounds
+  //   and CLAMP the base into them, so a wild outlier base (e.g. low=10M,
+  //   high=20M, base=10B) can't inflate the range by orders of magnitude.
+  // - bounds are degenerate/partial (missing one, or low==high): there is no real
+  //   interval, so the base carries the signal — INCLUDE it (e.g. a loss given as
+  //   low=high=0, base=-5M becomes {-5M,-5M,0}, preserved rather than erased).
+  if (low !== undefined && high !== undefined && low !== high) {
+    const lo = Math.min(low, high);
+    const hi = Math.max(low, high);
+    return { low: lo, base: Math.min(Math.max(b, lo), hi), high: hi, currency: cur };
+  }
   const lo0 = low ?? b;
   const hi0 = high ?? b;
-  // Guarantee low <= base <= high by EXPANDING the bounds to include base (not
-  // clamping base away) — so a mis-ordered reply can't display base outside the
-  // range, while a legitimate out-of-bound base (e.g. a negative loss with
-  // low=high=0) is preserved rather than erased. base is one of the three
-  // values, so it always lands within [min, max].
-  const lo = Math.min(lo0, b, hi0);
-  const hi = Math.max(lo0, b, hi0);
   return {
-    low: lo,
+    low: Math.min(lo0, b, hi0),
     base: b,
-    high: hi,
-    currency: typeof r.currency === "string" ? r.currency : currency,
+    high: Math.max(lo0, b, hi0),
+    currency: cur,
   };
 }
 
