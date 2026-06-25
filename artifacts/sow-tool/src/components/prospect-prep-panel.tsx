@@ -255,7 +255,7 @@ function WealthEstimatePanel({ estimate }: { estimate: NonNullable<PrepPack["wea
 
 // ── "Our read" — structured, with legacy prose fallback ─────────────────────
 function ReadSection({ read, fallback }: { read?: MarketRead; fallback: string }) {
-  if (!read || (!read.headline.trim() && read.keyFacts.length === 0 && read.themes.length === 0)) {
+  if (!read || (!read.narrative?.trim() && !read.headline.trim() && read.keyFacts.length === 0 && read.themes.length === 0)) {
     if (!fallback.trim()) return null;
     return (
       <section className="space-y-3">
@@ -267,6 +267,11 @@ function ReadSection({ read, fallback }: { read?: MarketRead; fallback: string }
   return (
     <section className="space-y-5">
       <div className="flex items-center gap-2"><Compass className="w-4 h-4" style={{ color: ACCENT }} /><SectionTitle>Our read</SectionTitle></div>
+
+      {/* Narrative — the qualitative lead the banker opens the meeting with */}
+      {read.narrative?.trim() && (
+        <p className="text-[15px] leading-[1.65]" style={{ color: INK }}>{read.narrative}</p>
+      )}
 
       {/* Headline — set apart in a tinted band so it lands first */}
       {read.headline.trim() && (
