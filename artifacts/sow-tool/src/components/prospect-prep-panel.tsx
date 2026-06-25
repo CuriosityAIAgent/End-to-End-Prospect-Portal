@@ -9,7 +9,7 @@ import {
   Phone, ScrollText, Compass, ExternalLink, FileText, Check, Gauge, Layers,
   Mail, Copy, Newspaper, HelpCircle,
 } from "lucide-react";
-import type { MarketRead, Approach, ColdCallScript } from "@workspace/research-pipeline/types";
+import type { MarketRead, Approach, ColdCallScript, CarrySpec } from "@workspace/research-pipeline/types";
 
 type ResearchDepth = "quick" | "deep";
 
@@ -97,6 +97,17 @@ function fmtMoney(n: number, currency: string): string {
 }
 function fmtRange(r: { low: number; high: number; currency: string }): string {
   return `${fmtMoney(r.low, r.currency)} – ${fmtMoney(r.high, r.currency)}`;
+}
+
+// Carried-interest workings — shown under a carry line as a conversation hook
+// ("you were a senior partner ~12 yrs on a $3bn fund — that's roughly $X").
+function carryWorkings(c: CarrySpec): string {
+  const pool = Math.round((c.carryPoolRate ?? 0.2) * 100);
+  const tax = Math.round((c.taxRate ?? 0.22) * 100);
+  const mult = c.grossMultiple?.base ?? 2.0;
+  const pctNum = c.personalCarryPct.base * 100;
+  const pct = Number.isInteger(pctNum) ? `${pctNum}` : pctNum.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+  return `${fmtMoney(c.fundSizeUsd, "USD")} fund · ${pct}% carry · ${mult}× gross · ${pool}% pool · net of ${tax}% tax`;
 }
 
 const EST_CONFIDENCE: Record<"high" | "medium" | "low", { className: string; label: string }> = {
@@ -210,6 +221,11 @@ function WealthEstimatePanel({ estimate }: { estimate: NonNullable<PrepPack["wea
                   <span style={{ color: INK }}>{l.label}</span>
                   <span className="tabular-nums" style={{ color: "#4A4A4A" }}>{lineValue(l)}</span>
                   <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 border rounded ${bs.className}`}>{bs.label}</span>
+                  {l.carry && (
+                    <span className="basis-full text-xs" style={{ color: "#7A7A6F" }}>
+                      ↳ {carryWorkings(l.carry)}
+                    </span>
+                  )}
                   {l.validatorNote && (
                     <span className="basis-full text-xs" style={{ color: "#9A7B00" }}>⚑ {l.validatorNote}</span>
                   )}
