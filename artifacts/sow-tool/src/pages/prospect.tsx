@@ -16,6 +16,7 @@ import { Layout } from "@/components/layout";
 import { FileNotePanel } from "@/components/file-note-panel";
 import { ProspectPrepPanel } from "@/components/prospect-prep-panel";
 import { PlanOfAction } from "@/components/plan-of-action";
+import { ReferralPointers } from "@/components/referral-pointers";
 import { SectionInfo } from "@/components/section-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -325,6 +326,13 @@ export default function Prospect() {
               { channel, variantId, label, action: "copied", at: new Date().toISOString() },
             ]);
           }}
+        />
+
+        {/* Referral pointers — look for a warm route before going cold. */}
+        <ReferralPointers
+          prospectName={prospect.name}
+          segment={localMeta.segment}
+          referralRoutes={(briefing as { referralRoutes?: string[] } | undefined)?.referralRoutes}
         />
 
         {/* Meeting note — captured after the meeting; feeds the SoW file on convert. */}
