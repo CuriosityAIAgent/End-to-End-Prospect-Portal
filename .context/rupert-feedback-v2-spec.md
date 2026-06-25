@@ -240,16 +240,24 @@ evidence that makes it plausible.
 
 ---
 
-## 8. Build order
-1. ✅ Net-worth → $25M gate + USD (this branch).
-2. Page restructure into the staged flow + Plan-of-action header.
-3. Brief → qualitative lead narrative; demote CH-granular noise.
-4. Carry model + carry table (financial-sponsor estimation path).
-5. Approach templates (Rupert's, with brevity rule).
-6. Referral pointers (broad, LinkedIn/web).
-7. Meeting fact-find → SoW wiring made explicit.
+## 8. Build order — STATUS
+1. ✅ Net-worth → $25M gate + USD — PR #8, MERGED + deployed.
+4. ✅ Carry model + carry table — PR #9, MERGED + deployed. (docs PR #10, MERGED.)
+2. ✅ Plan-of-action header + staged flow — PR #11 (open).
+3. ✅ Qualitative lead narrative + demote registry noise — PR #12 (open).
+5. ✅ Approach brevity rule (Rupert's style) — PR #13 (open).
+6. ✅ Referral pointers (broad, LinkedIn/web) — PR #14 (open).
+7. ✅ Meeting fact-find checklist → SoW — PR #15 (open).
 
-Each ships as its own PR on a branch → `codex review --base <ref>` → `gh pr create`.
+PRs #11–#15 are a stacked chain (each based on the previous), awaiting the
+deferred review (codex is auth-revoked; run `/code-review` or codex once
+re-authed) before merging to prod.
+
+Open follow-ups noted in PRs: editable carry inputs in the UI (#9); Rupert's
+static call-routes playbook — direct/assistant/switchboard/voicemail (#13);
+server-side auto-search for shared-network names (#14).
+
+Each ships as its own PR on a branch → review → `gh pr merge`.
 
 ## 9. Review follow-ups (not blocking the gate PR)
 - **Default income-tax rate** (`compute.ts` `DEFAULTS.tax = 0.45`, UK additional

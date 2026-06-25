@@ -17,6 +17,7 @@ import { FileNotePanel } from "@/components/file-note-panel";
 import { ProspectPrepPanel } from "@/components/prospect-prep-panel";
 import { PlanOfAction } from "@/components/plan-of-action";
 import { ReferralPointers } from "@/components/referral-pointers";
+import { MeetingFactFind } from "@/components/meeting-fact-find";
 import { SectionInfo } from "@/components/section-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -333,6 +334,11 @@ export default function Prospect() {
           prospectName={prospect.name}
           segment={localMeta.segment}
           referralRoutes={(briefing as { referralRoutes?: string[] } | undefined)?.referralRoutes}
+        />
+
+        {/* Meeting fact-find — what to collect in the meeting to complete the SoW. */}
+        <MeetingFactFind
+          prep={localData.prep as import("@workspace/research-pipeline/types").PrepPack | undefined}
         />
 
         {/* Meeting note — captured after the meeting; feeds the SoW file on convert. */}
