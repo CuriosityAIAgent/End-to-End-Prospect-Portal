@@ -31,6 +31,15 @@ file when that prospect becomes a client.
   script**, the right **Source-of-Wealth questions with anticipated answers + the
   documents to expect**, and a **market read** of how the wealth was likely built.
   A weaker advisor walks in prepared; they validate each point with the client.
+- **Net-worth qualification (>$25M?)** — alongside the prep, a defensible
+  net-worth estimate is built as an assumption *ledger* (the model grounds the
+  inputs, the **code** computes the figure). At the prospecting stage it's reduced
+  to the one thing that matters: does the prospect clear the **$25M** bar —
+  **Qualifies / Borderline / Below**? (A precise range is too wide to be useful;
+  it's kept internally to drive the verdict + the SoW questions.) For PE /
+  hedge-fund principals a **carried-interest model** estimates carry from
+  `fund size × (multiple − 1) × carry pool × carry points × (1 − tax)`, shown as
+  editable workings the banker uses as a conversation hook. All figures in USD.
 - **AI briefing** — a pre-meeting brief: summary, talking points, warm referral
   routes, recommended approach, with cited sources.
 - **Source of Wealth statement** — drafts a regulator-facing narrative (six
@@ -70,6 +79,13 @@ Four roles, each a different service, wired together in `lib/research-pipeline`:
 Why two different AI providers? An independent model is far better at catching
 the writer's own mistakes than asking the writer to grade itself. Claude writes,
 OpenAI verifies — the cross-check is the trust layer.
+
+Running alongside is the **net-worth estimator** (`lib/research-pipeline/src/estimate`):
+the model emits a grounded assumption *ledger* — never a prose number — the code
+computes the ranges deterministically, an independent model validates each line,
+and the result is reduced to the **>$25M qualification gate**. Carried interest is
+modelled explicitly for financial sponsors (fund size + seniority → carry points →
+an after-tax figure the code, not the model, computes).
 
 **Graceful degradation:** every external service is optional. No DataForSEO/Jina
 → falls back to the model's own web search. No Anthropic key → OpenAI writes. No
