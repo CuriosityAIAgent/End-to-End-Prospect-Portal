@@ -300,7 +300,7 @@ export default function Prospect() {
           prep={localData.prep as import("@workspace/research-pipeline/types").PrepPack | undefined}
           briefing={briefing}
           approachUsed={Array.isArray(localData.approachUsage) && (localData.approachUsage as unknown[]).length > 0}
-          hasFileNote={!!(localData.fileNote && String(localData.fileNote).trim())}
+          hasFileNote={!!(localData.fileNote as { note?: string } | undefined)?.note?.trim()}
           isConverted={isConverted}
         />
 

@@ -1,6 +1,14 @@
 import type { ReactNode } from "react";
 import { Check, Compass } from "lucide-react";
 import type { PrepPack } from "@workspace/research-pipeline/types";
+import { resolveQualification } from "./prospect-prep-panel";
+
+/** The gate verdict for this prep, server-computed or legacy-range-derived. */
+function gateVerdict(prep?: PrepPack): "above" | "borderline" | "below" | undefined {
+  const est = prep?.wealthEstimate;
+  if (!est || est.refused) return undefined;
+  return resolveQualification(est)?.verdict;
+}
 
 // ── Plan of action — the staged prospecting framework, at the top of the page ──
 // Per Rupert's feedback the banker should see, first, HOW we'll work this
@@ -44,11 +52,10 @@ function buildStages(p: PlanOfActionProps): Stage[] {
 
 /** The single tailored next action, by where the prospect sits in the flow. */
 function nextAction(p: PlanOfActionProps): string {
-  const qual = p.prep?.wealthEstimate?.qualification;
   if (!p.prep) {
     return "Generate the brief to qualify this prospect (>$25M?) and shape the approach.";
   }
-  if (qual?.verdict === "below") {
+  if (gateVerdict(p.prep) === "below") {
     return "Best estimate is below the $25M bar — qualify hard before investing more time.";
   }
   if (!p.approachUsed) {
@@ -79,17 +86,17 @@ export function PlanOfAction(props: PlanOfActionProps) {
   const stages = buildStages(props);
   // The active stage is the first not-yet-done one.
   const activeIdx = stages.findIndex((s) => !s.done);
-  const qual = props.prep?.wealthEstimate?.qualification;
+  const verdict = gateVerdict(props.prep);
 
   return (
     <section className="border border-border bg-card p-6 print:border-0 print:p-0">
       <div className="flex items-center gap-2 mb-1">
         <Compass className="w-4 h-4 text-primary" />
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Plan of action</h2>
-        {qual && (
+        {verdict && (
           <span className="ml-auto print:hidden">
-            <Pill tone={qual.verdict}>
-              {qual.verdict === "above" ? "Qualifies · >$25M" : qual.verdict === "below" ? "Below $25M bar" : "Borderline · confirm"}
+            <Pill tone={verdict}>
+              {verdict === "above" ? "Qualifies · >$25M" : verdict === "below" ? "Below $25M bar" : "Borderline · confirm"}
             </Pill>
           </span>
         )}

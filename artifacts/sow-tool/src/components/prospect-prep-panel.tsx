@@ -144,8 +144,9 @@ const QUAL_STYLE: Record<
 };
 
 /** Use the server-computed gate when present; else derive from the range for
- * back-compat with packs generated before the gate existed. */
-function resolveQualification(
+ * back-compat with packs generated before the gate existed. Exported so the
+ * Plan-of-action header derives the SAME verdict (legacy packs included). */
+export function resolveQualification(
   estimate: NonNullable<PrepPack["wealthEstimate"]>,
 ): { verdict: "above" | "borderline" | "below"; threshold: number; currency: string; rationale: string } | null {
   if (estimate.qualification) return estimate.qualification;
