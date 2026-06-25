@@ -6,7 +6,11 @@
 // declared, source-tagged lines. Pure functions, no I/O, unit-testable.
 // ============================================================================
 
-import type { AssumptionLine, Confidence, MoneyRange } from "../types";
+import type { AssumptionLine, Confidence, MoneyRange, QualificationVerdict } from "../types";
+
+/** The wealth bar a prospect must clear to be worth pursuing (USD). Banker rule:
+ * the upper bound is irrelevant — clearing $25M is the only qualification. */
+export const QUALIFY_THRESHOLD = 25_000_000;
 
 const DEFAULTS = {
   tax: 0.45, // UK additional-rate ballpark
@@ -153,6 +157,18 @@ export function computeEstimate(lines: AssumptionLine[], currency: string): Comp
   };
 
   return { total, liquid, weakFraction };
+}
+
+/**
+ * Classify a computed total against the qualification threshold. We compare on
+ * the *range*, not the base: only when the conservative low end already clears
+ * the bar is it an unequivocal "above"; only when even the high end falls short
+ * is it "below"; anything straddling the bar is "borderline" — confirm live.
+ */
+export function qualify(total: MoneyRange, threshold: number): QualificationVerdict {
+  if (total.low >= threshold) return "above";
+  if (total.high < threshold) return "below";
+  return "borderline";
 }
 
 /** Roll the ledger's basis + per-line confidence mix up to one confidence. */

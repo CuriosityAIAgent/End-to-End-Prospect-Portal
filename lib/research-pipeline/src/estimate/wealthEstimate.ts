@@ -10,16 +10,41 @@
 
 import { anthropicConfigured, writeWithClaude } from "../write/anthropic";
 import { validateWealthEstimate } from "../verify/wealthEstimate";
-import { computeEstimate, rollUpConfidence } from "./compute";
+import { computeEstimate, qualify, rollUpConfidence, QUALIFY_THRESHOLD } from "./compute";
 import type {
   AssumptionBasis,
   AssumptionCategory,
   AssumptionLine,
   Confidence,
   MoneyRange,
+  Qualification,
   WealthEstimate,
   WealthValidation,
 } from "../types";
+
+/** Build the qualification gate from a finished estimate's total range. Returns
+ * the estimate with `qualification` attached (skipped when refused). */
+function withQualification(estimate: WealthEstimate): WealthEstimate {
+  if (estimate.refused) return estimate;
+  const threshold = QUALIFY_THRESHOLD;
+  const verdict = qualify(estimate.totalNetWorth, threshold);
+  const bar = "$25M";
+  const rationale =
+    verdict === "above"
+      ? `Even the conservative low-end estimate clears the ${bar} net-worth bar — qualifies for coverage.`
+      : verdict === "borderline"
+        ? `Sits around the ${bar} bar on current evidence — confirm net worth in the meeting.`
+        : `Likely below the ${bar} bar on current public evidence — qualify before investing time.`;
+  // The bar is defined in USD; estimates are standardised to USD, so the gate's
+  // currency is USD regardless of how a stray line was denominated.
+  const qualification: Qualification = {
+    threshold,
+    currency: "USD",
+    verdict,
+    rationale,
+  };
+  return { ...estimate, qualification };
+}
 
 // Default Sonnet; escalate to Opus for hard cases. Both overridable.
 const SIMPLE_MODEL = process.env.WEALTH_ESTIMATOR_MODEL ?? "claude-sonnet-4-6";
@@ -42,12 +67,12 @@ const ESTIMATOR_INSTRUCTIONS = [
   "",
   "Tag every line with a basis: 'from-source' (a figure actually stated in the SOURCE MATERIAL — cite its passage index like [3] in sourceRef), 'benchmark-inferred' (a comp band you infer from the role/industry/era — name the comparable in the label), or 'assumption' (a modelling parameter). Be honest: only use 'from-source' when the number is really in the material. Give each line a confidence (high/medium/low).",
   "",
-  "Set currency to the most relevant ISO code (GBP for UK, USD for US). Write a one-line `headline` summarising the basis (e.g. '≈18 yrs as a PE managing partner; comp extrapolation plus a reported 2019 stake sale').",
+  "Present ALL monetary values in USD. If a source figure is in another currency (e.g. GBP), convert it to USD at an approximate spot rate and note the original in the line label. Set currency to \"USD\". Write a one-line `headline` summarising the basis (e.g. '≈18 yrs as a PE managing partner; comp extrapolation plus a reported 2019 stake sale').",
   "",
   "If there is genuinely no anchor — no role/tenure AND no stated asset or wealth figure — set refused=true with a one-line refusalReason rather than inventing an estimate. Otherwise estimate, using wide ranges and low confidence when evidence is thin.",
   "",
   "Return ONLY JSON (no markdown):",
-  '{ "refused": false, "refusalReason": "", "currency": "GBP", "headline": "…", "assumptions": [ { "id":"a1", "label":"Reported net worth (rich-list)", "category":"reported_net_worth", "amount":{"low":6000000000,"base":7000000000,"high":9000000000}, "basis":"from-source", "sourceRef":"[1]", "confidence":"medium" }, { "id": "a2", "label": "Base+bonus, MD at <firm>, 2012–2024", "category": "role_comp", "annual": {"low":800000,"base":1200000,"high":1800000}, "years": 12, "basis": "benchmark-inferred", "sourceRef": "[3]", "confidence": "medium" }, { "id":"a3", "label":"Effective tax rate", "category":"tax", "rate":0.45, "basis":"assumption", "sourceRef":"", "confidence":"high" }, { "id":"a4", "label":"2019 sale of stake in <co>", "category":"liquidity_event", "amount":{"low":30000000,"base":40000000,"high":50000000}, "liquid":true, "basis":"from-source", "sourceRef":"[5]", "confidence":"high" } ] }. Give every assumption a UNIQUE id.',
+  '{ "refused": false, "refusalReason": "", "currency": "USD", "headline": "…", "assumptions": [ { "id":"a1", "label":"Reported net worth (rich-list)", "category":"reported_net_worth", "amount":{"low":6000000000,"base":7000000000,"high":9000000000}, "basis":"from-source", "sourceRef":"[1]", "confidence":"medium" }, { "id": "a2", "label": "Base+bonus, MD at <firm>, 2012–2024", "category": "role_comp", "annual": {"low":800000,"base":1200000,"high":1800000}, "years": 12, "basis": "benchmark-inferred", "sourceRef": "[3]", "confidence": "medium" }, { "id":"a3", "label":"Effective tax rate", "category":"tax", "rate":0.45, "basis":"assumption", "sourceRef":"", "confidence":"high" }, { "id":"a4", "label":"2019 sale of stake in <co>", "category":"liquidity_event", "amount":{"low":30000000,"base":40000000,"high":50000000}, "liquid":true, "basis":"from-source", "sourceRef":"[5]", "confidence":"high" } ] }. Give every assumption a UNIQUE id.',
 ].join("\n");
 
 function chooseComplex(corpusBlock: string, notes: string): boolean {
@@ -121,7 +146,7 @@ function parseLedger(text: string): DraftedLedger | null {
   } catch {
     return null;
   }
-  const currency = typeof raw.currency === "string" ? raw.currency : "GBP";
+  const currency = typeof raw.currency === "string" ? raw.currency : "USD";
   const lines: AssumptionLine[] = Array.isArray(raw.assumptions)
     ? (raw.assumptions as Record<string, any>[])
         .map((l, i): AssumptionLine => ({
@@ -318,8 +343,8 @@ export async function estimateWealth(
 
   if (drafted.refused || drafted.lines.length === 0) {
     return {
-      totalNetWorth: { low: 0, base: 0, high: 0, currency: drafted?.currency ?? "GBP" },
-      liquidNetWorth: { low: 0, base: 0, high: 0, currency: drafted?.currency ?? "GBP" },
+      totalNetWorth: { low: 0, base: 0, high: 0, currency: drafted?.currency ?? "USD" },
+      liquidNetWorth: { low: 0, base: 0, high: 0, currency: drafted?.currency ?? "USD" },
       headline: "",
       assumptions: [],
       overallConfidence: "low",
@@ -327,7 +352,7 @@ export async function estimateWealth(
       refused: true,
       refusalReason:
         drafted.refusalReason || "Insufficient public evidence to estimate net worth.",
-      currency: drafted.currency ?? "GBP",
+      currency: drafted.currency ?? "USD",
       asOf: new Date().toISOString().slice(0, 10),
       generatedAt: new Date().toISOString(),
     };
@@ -348,5 +373,6 @@ export async function estimateWealth(
     }
   }
 
-  return estimate;
+  // Derive the qualification gate from the FINAL total (post-reconcile/escalate).
+  return withQualification(estimate);
 }
