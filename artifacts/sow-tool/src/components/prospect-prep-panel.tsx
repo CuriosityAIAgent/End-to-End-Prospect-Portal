@@ -128,6 +128,12 @@ const BASIS_STYLE: Record<string, { label: string; className: string }> = {
 // clear the bar?" — a precise range is too wide to be useful. We show the
 // verdict; the range stays internal (it drives this gate + the SoW questions).
 const QUALIFY_THRESHOLD_USD = 25_000_000;
+// Approximate FX → USD for the legacy-pack fallback (kept in sync with
+// research-pipeline's toUsdApprox; duplicated rather than importing server
+// runtime into the browser bundle). Coarse is fine for a $25M gate.
+const APPROX_USD_PER: Record<string, number> = {
+  USD: 1, GBP: 1.27, EUR: 1.08, CHF: 1.1, CAD: 0.73, AUD: 0.66, SGD: 0.74, HKD: 0.128, JPY: 0.0064,
+};
 const QUAL_STYLE: Record<
   "above" | "borderline" | "below",
   { className: string; verdict: string }
@@ -144,11 +150,15 @@ function resolveQualification(
 ): { verdict: "above" | "borderline" | "below"; threshold: number; currency: string; rationale: string } | null {
   if (estimate.qualification) return estimate.qualification;
   const t = estimate.totalNetWorth;
-  // Only derive a verdict for USD packs — the bar is a USD figure, and legacy
-  // (pre-gate) packs were often GBP; judging a £ range against a $ bar would
-  // mislabel exactly the data this fallback exists to serve.
-  if (!t || (t.low === 0 && t.high === 0) || t.currency !== "USD") return null;
-  const verdict = t.low >= QUALIFY_THRESHOLD_USD ? "above" : t.high < QUALIFY_THRESHOLD_USD ? "below" : "borderline";
+  if (!t || (t.low === 0 && t.high === 0)) return null;
+  // Normalise to USD before judging against the USD bar — legacy (pre-gate) packs
+  // were often GBP, and comparing a £ range raw against a $ bar would mislabel
+  // exactly the data this fallback exists to serve. Unknown currency → no verdict.
+  const rate = APPROX_USD_PER[t.currency];
+  if (!rate) return null;
+  const lowUsd = t.low * rate;
+  const highUsd = t.high * rate;
+  const verdict = lowUsd >= QUALIFY_THRESHOLD_USD ? "above" : highUsd < QUALIFY_THRESHOLD_USD ? "below" : "borderline";
   return { verdict, threshold: QUALIFY_THRESHOLD_USD, currency: "USD", rationale: "" };
 }
 
