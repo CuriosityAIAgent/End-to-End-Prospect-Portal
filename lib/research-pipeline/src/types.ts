@@ -134,8 +134,13 @@ export interface ReadTheme {
   facts: ReadFact[];
 }
 
-/** The structured read: a headline, scannable key facts, then themed detail. */
+/** The structured read: a qualitative narrative, a headline, scannable key facts,
+ * then themed detail. */
 export interface MarketRead {
+  /** The qualitative lead: a short flowing story of how the wealth was built →
+   * career arc → where they sit now. The engaging opener the banker uses to
+   * start the meeting — not a dossier. 3–5 sentences of prose. */
+  narrative: string;
   /** The one-line "At a glance" headline. */
   headline: string;
   /** 3–6 scannable labelled facts. */

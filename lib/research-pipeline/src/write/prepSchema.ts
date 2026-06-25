@@ -31,11 +31,13 @@ const THEME_DEFAULTS: Record<(typeof THEME_IDS)[number], string> = {
 /** The JSON spec lines injected into the prep prompt. */
 export function prepResponseSpec(): string {
   return [
+    "GOAL of the read: give the banker an engaging, QUALITATIVE story they can use to OPEN the meeting — how this person built their wealth, their career arc, and where they sit now. Lead with the narrative, not a data dossier. Keep granular registry trivia (a small co-owned company, a personal flat held with friends, minor filings) OUT of the front read — it's noise at this stage; only material entities belong here.",
     "Return ONLY a JSON object (no markdown) with exactly these keys:",
     '  "read": {',
+    '    "narrative": string — 3-5 sentences of flowing prose: the qualitative story of how the wealth was built → career arc → where they sit now. Engaging, human, meeting-opening tone. NOT a bullet dump.',
     '    "headline": string — one tight line, the "at a glance" read of who they are and where the wealth sits;',
     '    "keyFacts": [{ "label": string, "value": string }] — 3-6 scannable facts (e.g. label "Wealth origin", "Where it sits", "Notable");',
-    '    "themes": [{ "id": "origin"|"structure"|"entities"|"watch", "heading": string, "takeaway": string (one line), "facts": [{ "text": string, "basis": "supported"|"inference" }] }] — use the four ids; headings like "How the wealth was built" / "Where it sits" / "Names & numbers" / "Watch-items". Mark each fact\'s basis honestly: "supported" if it traces to the SOURCE MATERIAL, else "inference".',
+    '    "themes": [{ "id": "origin"|"structure"|"entities"|"watch", "heading": string, "takeaway": string (one line), "facts": [{ "text": string, "basis": "supported"|"inference" }] }] — use the four ids; headings like "How the wealth was built" / "Where it sits" / "Names & numbers" / "Watch-items". For "entities" (Names & numbers) keep only MATERIAL holdings/figures — skip granular registry trivia. Mark each fact\'s basis honestly: "supported" if it traces to the SOURCE MATERIAL, else "inference".',
     "  },",
     '  "approach": {',
     '    "email": [ exactly 3 variants { "id": "email-1", "label": string, "rationale": string, "newsHook": string|null, "subject": string, "body": string } ] — variant 1 leans on a RECENT news/event from the SOURCE MATERIAL (set newsHook), variant 2 is warm/relationship-led, variant 3 is direct/value-led;',
@@ -79,7 +81,7 @@ function parseRead(raw: unknown): MarketRead {
         })
         .filter((t) => t.takeaway.trim().length > 0 || t.facts.length > 0)
     : [];
-  return { headline: str(r.headline), keyFacts, themes };
+  return { narrative: str(r.narrative), headline: str(r.headline), keyFacts, themes };
 }
 
 function parseObjections(v: unknown): { objection: string; response: string }[] {
@@ -122,6 +124,7 @@ function parseApproach(raw: unknown): Approach {
 /** Flat string for verification + legacy display. */
 function deriveMarketRead(read: MarketRead): string {
   return [
+    read.narrative,
     read.headline,
     ...read.keyFacts.map((f) => `${f.label}: ${f.value}`),
     ...read.themes.flatMap((t) => [`${t.heading}: ${t.takeaway}`, ...t.facts.map((f) => f.text)]),
