@@ -17,19 +17,32 @@ function fmtUsd(n: number): string {
 }
 
 /** Pull anticipated figures from the estimate's ledger, by line category. */
-function anticipated(prep?: PrepPack): { carry?: string; comp?: string } {
+function anticipated(prep?: PrepPack): {
+  comp?: string;
+  carryRealised?: string;
+  carryUnrealised?: string;
+} {
   const lines = prep?.wealthEstimate?.assumptions ?? [];
-  let carry: string | undefined;
   let comp: string | undefined;
+  let carryRealised: string | undefined;
+  let carryUnrealised: string | undefined;
   for (const l of lines) {
-    if (l.category === "carry_equity" && l.amount && !carry) {
-      carry = `${fmtUsd(l.amount.low)}–${fmtUsd(l.amount.high)}`;
+    if (l.category === "carry_equity" && l.amount) {
+      const r = `${fmtUsd(l.amount.low)}–${fmtUsd(l.amount.high)}`;
+      // A carry line flagged `liquid` has been realised/cashed → it's income;
+      // an unflagged (illiquid) one is still an unrealised asset.
+      if (l.liquid) {
+        if (!carryRealised) carryRealised = r;
+      } else if (!carryUnrealised) {
+        carryUnrealised = r;
+      }
     }
+    // role_comp is base + bonus COMBINED — never label it as salary alone.
     if (l.category === "role_comp" && l.annual && !comp) {
       comp = `${fmtUsd(l.annual.low)}–${fmtUsd(l.annual.high)}/yr`;
     }
   }
-  return { carry, comp };
+  return { comp, carryRealised, carryUnrealised };
 }
 
 interface Line {
@@ -39,6 +52,8 @@ interface Line {
 interface Group {
   title: string;
   lines: Line[];
+  /** A group-level caption (e.g. the combined comp estimate). */
+  note?: string;
 }
 
 export function MeetingFactFind({ prep }: { prep?: PrepPack }) {
@@ -46,10 +61,11 @@ export function MeetingFactFind({ prep }: { prep?: PrepPack }) {
   const groups: Group[] = [
     {
       title: "Income",
+      note: ant.comp ? `Est. total comp ≈ ${ant.comp} (salary + bonus combined — split with the client)` : undefined,
       lines: [
-        { label: "Salary", hint: ant.comp ? `est. ${ant.comp}` : undefined },
+        { label: "Salary" },
         { label: "Bonus" },
-        { label: "Carried interest", hint: ant.carry ? `est. ${ant.carry}` : undefined },
+        { label: "Carried interest (realised)", hint: ant.carryRealised ? `est. ${ant.carryRealised}` : undefined },
         { label: "Co-invest income" },
       ],
     },
@@ -60,7 +76,7 @@ export function MeetingFactFind({ prep }: { prep?: PrepPack }) {
         { label: "Liquid assets" },
         { label: "Investible assets" },
         { label: "Investment assets" },
-        { label: "Carried interest (unrealised)", hint: ant.carry ? `est. ${ant.carry}` : undefined },
+        { label: "Carried interest (unrealised)", hint: ant.carryUnrealised ? `est. ${ant.carryUnrealised}` : undefined },
         { label: "Co-invest" },
         { label: "Primary residence" },
       ],
@@ -92,6 +108,7 @@ export function MeetingFactFind({ prep }: { prep?: PrepPack }) {
             <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-2 pb-1 border-b border-border">
               {g.title}
             </div>
+            {g.note && <p className="text-xs text-primary/80 mb-2">{g.note}</p>}
             <ul className="space-y-1.5">
               {g.lines.map((l) => (
                 <li key={l.label} className="flex items-baseline gap-2 text-sm">
