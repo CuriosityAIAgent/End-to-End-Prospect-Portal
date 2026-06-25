@@ -62,6 +62,10 @@ export function assumptionsToQuestions(estimate: WealthEstimate, max = 4): SowQu
   if (estimate.refused) return [];
   const material = estimate.assumptions
     .filter(isMaterial)
+    // A material line with no value (e.g. a carry line whose spec failed to parse,
+    // or a role_comp missing its annual range) would yield a malformed question
+    // ("…at roughly . Is that right?"); drop those.
+    .filter((l) => !!l.annual || !!l.amount)
     .sort((a, b) => weight(b) - weight(a))
     .slice(0, max);
 

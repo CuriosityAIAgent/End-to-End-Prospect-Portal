@@ -11,10 +11,13 @@
 import { anthropicConfigured, writeWithClaude } from "../write/anthropic";
 import { validateWealthEstimate } from "../verify/wealthEstimate";
 import { computeEstimate, qualify, rollUpConfidence, QUALIFY_THRESHOLD } from "./compute";
+import { carryNetRange, carryPointsForTier } from "./carry";
 import type {
   AssumptionBasis,
   AssumptionCategory,
   AssumptionLine,
+  Band,
+  CarrySpec,
   Confidence,
   MoneyRange,
   Qualification,
@@ -62,6 +65,7 @@ const ESTIMATOR_INSTRUCTIONS = [
   "Method: from the SOURCE MATERIAL and the banker's notes, establish the prospect's roles, seniority, firms, tenure and geography. Then build the ledger:",
   "- If the SOURCE MATERIAL reports a credible TOTAL net-worth figure (e.g. a rich-list valuation), add it as a `reported_net_worth` line with a one-off AMOUNT range. IMPORTANT: when you do this, do NOT separately itemise the operating-company stake or the accumulated salary that MAKE UP that net worth — those are the SAME wealth and would double-count. Model EITHER the top-down reported figure OR the bottom-up build, not both for the total. Prefer the reported figure when one exists; you may still record comp lines, but understand they inform the LIQUID estimate, not an addition to the total.",
   "- Income streams as role_comp (base + bonus) and carry_equity (carried interest / equity / RSUs): give an ANNUAL range and the number of YEARS.",
+  "- FINANCIAL SPONSORS (private-equity / hedge-fund principals): carried interest is usually the DOMINANT wealth driver — model it, don't skip it. Add a `carry_equity` line PER FUND the prospect holds carry in, with a structured `carry` object INSTEAD of an annual stream: `fundSizeUsd` (the fund's size in USD, from research), `seniorityTier` (one of: founder_managing_partner, senior_partner, partner, principal, vp_mid, junior, lateral_signon — pick from their role/tenure), and optionally `grossMultiple` {low,base,high} if research indicates fund performance (else our 1.5–2.5× default applies). Our code computes the after-tax carry value from these — do NOT put a number in `amount` yourself. Set basis 'from-source' only if the fund size is actually stated; otherwise 'benchmark-inferred'. Carried interest is ILLIQUID until the fund realises and distributes — leave `liquid` unset for unrealised carry; set `liquid: true` only for carry already paid out / cashed.",
   "- One-off items as liquidity_event (exit / IPO / sale) and known_asset (property, shareholding): give a one-off AMOUNT and whether it is liquid.",
   "- Modelling parameters as tax, savings_rate, investment_return: give a rate (0..1).",
   "",
@@ -72,7 +76,7 @@ const ESTIMATOR_INSTRUCTIONS = [
   "If there is genuinely no anchor — no role/tenure AND no stated asset or wealth figure — set refused=true with a one-line refusalReason rather than inventing an estimate. Otherwise estimate, using wide ranges and low confidence when evidence is thin.",
   "",
   "Return ONLY JSON (no markdown):",
-  '{ "refused": false, "refusalReason": "", "currency": "USD", "headline": "…", "assumptions": [ { "id":"a1", "label":"Reported net worth (rich-list)", "category":"reported_net_worth", "amount":{"low":6000000000,"base":7000000000,"high":9000000000}, "basis":"from-source", "sourceRef":"[1]", "confidence":"medium" }, { "id": "a2", "label": "Base+bonus, MD at <firm>, 2012–2024", "category": "role_comp", "annual": {"low":800000,"base":1200000,"high":1800000}, "years": 12, "basis": "benchmark-inferred", "sourceRef": "[3]", "confidence": "medium" }, { "id":"a3", "label":"Effective tax rate", "category":"tax", "rate":0.45, "basis":"assumption", "sourceRef":"", "confidence":"high" }, { "id":"a4", "label":"2019 sale of stake in <co>", "category":"liquidity_event", "amount":{"low":30000000,"base":40000000,"high":50000000}, "liquid":true, "basis":"from-source", "sourceRef":"[5]", "confidence":"high" } ] }. Give every assumption a UNIQUE id.',
+  '{ "refused": false, "refusalReason": "", "currency": "USD", "headline": "…", "assumptions": [ { "id":"a1", "label":"Reported net worth (rich-list)", "category":"reported_net_worth", "amount":{"low":6000000000,"base":7000000000,"high":9000000000}, "basis":"from-source", "sourceRef":"[1]", "confidence":"medium" }, { "id": "a2", "label": "Base+bonus, MD at <firm>, 2012–2024", "category": "role_comp", "annual": {"low":800000,"base":1200000,"high":1800000}, "years": 12, "basis": "benchmark-inferred", "sourceRef": "[3]", "confidence": "medium" }, { "id":"a3", "label":"Effective tax rate", "category":"tax", "rate":0.45, "basis":"assumption", "sourceRef":"", "confidence":"high" }, { "id":"a4", "label":"2019 sale of stake in <co>", "category":"liquidity_event", "amount":{"low":30000000,"base":40000000,"high":50000000}, "liquid":true, "basis":"from-source", "sourceRef":"[5]", "confidence":"high" }, { "id":"a5", "label":"Carry, senior partner at <fund> (Fund III, $3bn), 2012–2024", "category":"carry_equity", "carry":{ "fundSizeUsd":3000000000, "seniorityTier":"senior_partner", "grossMultiple":{"low":1.8,"base":2.2,"high":2.6} }, "basis":"benchmark-inferred", "sourceRef":"[2]", "confidence":"medium" } ] }. Give every assumption a UNIQUE id. For carry_equity, supply EITHER a `carry` object (preferred for fund principals) OR an `annual`+`years` stream, never both.',
 ].join("\n");
 
 function chooseComplex(corpusBlock: string, notes: string): boolean {
@@ -129,6 +133,51 @@ function coerceRange(v: unknown, currency: string): MoneyRange | undefined {
   };
 }
 
+function coerceBand(v: unknown): Band | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const r = v as Record<string, unknown>;
+  const num = (x: unknown): number | undefined =>
+    typeof x === "number" && Number.isFinite(x) ? x : undefined;
+  const low = num(r.low);
+  const base = num(r.base);
+  const high = num(r.high);
+  if (low === undefined && base === undefined && high === undefined) return undefined;
+  // When the model omits `base` but gives both bounds, the base is the MIDPOINT —
+  // not the low end (which would systematically understate the base estimate).
+  const b =
+    base ?? (low !== undefined && high !== undefined ? (low + high) / 2 : (low ?? high ?? 0));
+  const lo = low ?? b;
+  const hi = high ?? b;
+  return { low: Math.min(lo, b, hi), base: b, high: Math.max(lo, b, hi) };
+}
+
+/** Parse a carried-interest spec. Accepts an explicit personalCarryPct band, or
+ * a `seniorityTier` we map through our carry-points table. Needs a fund size and
+ * a carry-points band to be usable. */
+function coerceCarry(v: unknown): CarrySpec | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const r = v as Record<string, unknown>;
+  const fund =
+    typeof r.fundSizeUsd === "number" && Number.isFinite(r.fundSizeUsd) ? r.fundSizeUsd : undefined;
+  if (fund === undefined || fund <= 0) return undefined;
+  const tier = typeof r.seniorityTier === "string" ? r.seniorityTier : undefined;
+  let pct = coerceBand(r.personalCarryPct);
+  if (!pct && tier) pct = carryPointsForTier(tier);
+  if (!pct) return undefined;
+  // Honour an explicit 0 (e.g. a zero-carry-tax jurisdiction); only `absent`
+  // should fall back to the default, not a deliberate zero.
+  const rate = (x: unknown): number | undefined =>
+    typeof x === "number" && Number.isFinite(x) && x >= 0 && x <= 1 ? x : undefined;
+  return {
+    fundSizeUsd: fund,
+    personalCarryPct: pct,
+    seniorityTier: tier,
+    grossMultiple: coerceBand(r.grossMultiple),
+    carryPoolRate: rate(r.carryPoolRate),
+    taxRate: rate(r.taxRate),
+  };
+}
+
 interface DraftedLedger {
   refused: boolean;
   refusalReason: string;
@@ -156,6 +205,7 @@ function parseLedger(text: string): DraftedLedger | null {
           annual: coerceRange(l.annual, currency),
           years: typeof l.years === "number" ? l.years : undefined,
           amount: coerceRange(l.amount, currency),
+          carry: coerceCarry(l.carry),
           liquid: typeof l.liquid === "boolean" ? l.liquid : undefined,
           rate: typeof l.rate === "number" ? l.rate : undefined,
           basis: coerceBasis(l.basis),
@@ -164,6 +214,19 @@ function parseLedger(text: string): DraftedLedger | null {
         }))
         .filter((l) => l.label.trim().length > 0)
     : [];
+
+  // Materialise the carry value: for any carry_equity line with a CarrySpec, the
+  // dollar `amount` is computed by US from the spec — ALWAYS, overwriting any
+  // amount/annual the model may have supplied. This enforces the core invariant
+  // ("the carry number is code-computed, never the model's") and guarantees the
+  // counted figure matches the workings shown in the UI / sent to the validator.
+  for (const l of lines) {
+    if (l.category === "carry_equity" && l.carry) {
+      l.amount = carryNetRange(l.carry);
+      l.annual = undefined;
+      l.years = undefined;
+    }
+  }
 
   // Guarantee unique line ids: the validator keys verdicts by id in a Map, so a
   // duplicate id (even if the model emits one) would silently overwrite a line's
@@ -279,7 +342,11 @@ function reconcile(estimate: WealthEstimate, validation: WealthValidation): Weal
       !!l.annual &&
       typeof l.years === "number" &&
       l.years > 0) ||
-    ((l.category === "liquidity_event" || l.category === "known_asset") && !!l.amount);
+    ((l.category === "liquidity_event" || l.category === "known_asset") && !!l.amount) ||
+    // A carry line carries its value in a code-computed `amount` (no annual) —
+    // mirror compute.ts's amount-loop predicate so a surviving carry line counts
+    // as a fallback value rather than triggering a spurious refusal.
+    (l.category === "carry_equity" && !l.annual && !!l.amount);
   const survivingValueLines = surviving.filter(isComputableValue);
   const lostAllReported = reportedLines.length > 0 && reportedLines.every(isRejected);
   if (lostAllReported && survivingValueLines.length === 0) {

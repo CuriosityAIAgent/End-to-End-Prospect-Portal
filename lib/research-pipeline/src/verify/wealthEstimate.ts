@@ -28,6 +28,8 @@ const VALIDATE_INSTRUCTIONS = [
   '- "implausible": the value is unrealistic for the stated role / industry / era / geography.',
   "Give a one-line `note` for each, and a `suggestedConfidence` when you would lower it.",
   "",
+  "NOTE on carried-interest (carry_equity) lines: their dollar AMOUNT is computed by our code from the shown inputs [carry: fund size · seniority tier · gross multiple], NOT asserted by the analyst — so do NOT flag the amount as 'ungrounded' merely for lacking a source. Judge instead whether the INPUTS are reasonable: is the fund size right/credible, and does the seniority tier fit the prospect's role and tenure? Flag only if those inputs are wrong or unsupported.",
+  "",
   "Then judge the aggregate: is the overall estimate likely OVER-CONFIDENT (too narrow a range for how much rests on inference)? Should the range be widened?",
   "",
   'Return ONLY JSON: {"lineVerdicts":[{"id":"<line id>","verdict":"ok|weak|ungrounded|implausible","note":"...","suggestedConfidence":"high|medium|low"}],"overConfident":true|false,"rangeAdvice":"ok|widen","overallConfidence":"high|medium|low"}. No markdown.',
@@ -53,7 +55,14 @@ function ledgerToBlock(lines: AssumptionLine[]): string {
           : typeof l.rate === "number"
             ? `${(l.rate * 100).toFixed(0)}%`
             : "—";
-      return `${l.id} [${l.category}] ${l.label} = ${val} · basis=${l.basis} · ref=${l.sourceRef || "none"} · confidence=${l.confidence}`;
+      // For a carry line, show the INPUTS the amount was computed from so the
+      // validator judges the inputs (fund size, tier), not the derived figure.
+      const carryNote = l.carry
+        ? ` · carry[fund=${l.carry.fundSizeUsd} · tier=${l.carry.seniorityTier ?? "?"} · pct≈${(
+            l.carry.personalCarryPct.base * 100
+          ).toFixed(1)}% · mult≈${l.carry.grossMultiple?.base ?? "default"}× (code-computed)]`
+        : "";
+      return `${l.id} [${l.category}] ${l.label} = ${val}${carryNote} · basis=${l.basis} · ref=${l.sourceRef || "none"} · confidence=${l.confidence}`;
     })
     .join("\n");
 }

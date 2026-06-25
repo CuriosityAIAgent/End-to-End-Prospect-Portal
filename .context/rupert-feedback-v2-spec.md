@@ -84,7 +84,20 @@ Implementation:
 
 ---
 
-## 4. Financial-sponsors carry model + OUR carry table  (TODO)
+## 4. Financial-sponsors carry model + OUR carry table  ✅ CORE SHIPPED (branch feat/carry-model)
+
+Implemented: `estimate/carry.ts` (carry-points table + `carryNetRange()` pure
+calculator + `carryPointsForTier()`); `types.ts` `Band`/`CarrySpec` +
+`AssumptionLine.carry?`; the estimator prompt now instructs structured carry
+lines for financial sponsors (model supplies fund size + seniority tier, CODE
+computes the dollar value — never the model); `parseLedger` materialises the
+carry `amount` from the spec; `compute.ts` counts carry_equity amount lines
+toward total; the estimate panel shows the carry workings as a conversation hook.
+Unit-checked against Rupert's Tower Brook example (4.5%/$3bn/2× → ~$21M/fund).
+**Follow-up:** make the carry inputs *editable* in the UI (recompute + persist) —
+currently the workings are shown read-only. Original spec below.
+
+
 
 For PE / hedge-fund prospects, wealth is best estimated from carried interest.
 This becomes the primary estimation path for the financial-sponsor segment and

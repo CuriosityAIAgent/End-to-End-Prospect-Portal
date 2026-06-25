@@ -80,11 +80,19 @@ export function computeEstimate(lines: AssumptionLine[], currency: string): Comp
   let liqEvBase = 0;
   let liqEvHigh = 0;
   for (const l of lines) {
-    if ((l.category !== "liquidity_event" && l.category !== "known_asset") || !l.amount) continue;
-    // A known asset can't be worth less than zero, but a liquidity_event can be
-    // NEGATIVE — a loss (e.g. wealth destroyed in a collapsed deal) — and must
-    // subtract from the estimate rather than be clamped away.
-    const floor = l.category === "known_asset" ? 0 : Number.NEGATIVE_INFINITY;
+    // Amount-bearing lines: one-off events/assets, plus carried-interest lines
+    // (carry_equity) whose dollar value was computed from a CarrySpec into
+    // `amount`. A carry line carrying an `annual` stream instead is handled by
+    // the income loop above, so we skip it here to avoid double-counting.
+    const isAmountLine =
+      l.category === "liquidity_event" ||
+      l.category === "known_asset" ||
+      (l.category === "carry_equity" && !l.annual);
+    if (!isAmountLine || !l.amount) continue;
+    // A known asset / carry value can't be worth less than zero, but a
+    // liquidity_event can be NEGATIVE — a loss (e.g. wealth destroyed in a
+    // collapsed deal) — and must subtract rather than be clamped away.
+    const floor = l.category === "liquidity_event" ? Number.NEGATIVE_INFINITY : 0;
     const lo = Math.max(floor, l.amount.low);
     const ba = Math.max(floor, l.amount.base);
     const hi = Math.max(floor, l.amount.high);

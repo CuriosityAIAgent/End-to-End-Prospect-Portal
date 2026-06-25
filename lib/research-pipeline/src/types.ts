@@ -223,6 +223,34 @@ export type AssumptionCategory =
   | "illiquidity" // informational haircut note
   | "other";
 
+/** A low/base/high band for an uncertain factor (used by the carry model). */
+export interface Band {
+  low: number;
+  base: number;
+  high: number;
+}
+
+/**
+ * Structured carried-interest inputs for a `carry_equity` line. The model grounds
+ * these (fund size from research; seniority → carry points from our table) and
+ * the code computes the dollar value — so the number is never a model
+ * hallucination. See estimate/carry.ts.
+ */
+export interface CarrySpec {
+  /** Fund size in USD (research-grounded, best-effort). */
+  fundSizeUsd: number;
+  /** The individual's personal carry-points band. */
+  personalCarryPct: Band;
+  /** The seniority tier the carry points came from (for display/validation). */
+  seniorityTier?: string;
+  /** Profit multiple band; defaults applied in code. */
+  grossMultiple?: Band;
+  /** GP carry pool rate; default 0.20. */
+  carryPoolRate?: number;
+  /** Carry tax rate; default 0.22. */
+  taxRate?: number;
+}
+
 export interface AssumptionLine {
   id: string;
   /** Human label: "Carry, managing partner, UK hedge fund, 2010–2020". */
@@ -233,6 +261,8 @@ export interface AssumptionLine {
   years?: number;
   /** Events / assets (liquidity_event / known_asset): a one-off amount. */
   amount?: MoneyRange;
+  /** Carried-interest inputs (carry_equity): code computes `amount` from these. */
+  carry?: CarrySpec;
   /** Whether an asset/event counts toward LIQUID net worth. */
   liquid?: boolean;
   /** Rate lines (savings_rate / investment_return / tax): a fraction 0..1. */
