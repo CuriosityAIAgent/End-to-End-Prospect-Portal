@@ -167,6 +167,30 @@ export function computeEstimate(lines: AssumptionLine[], currency: string): Comp
   return { total, liquid, weakFraction };
 }
 
+/** Approximate FX → USD. Coarse on purpose: the qualification gate is a $25M bar
+ * with a "borderline" straddle, so a few % of FX drift can't flip a real verdict
+ * except right at the boundary (where "borderline" is the honest answer anyway).
+ * New packs are USD; this exists so legacy/non-USD packs are judged in USD rather
+ * than compared raw against a USD bar. */
+const APPROX_USD_PER: Record<string, number> = {
+  USD: 1, GBP: 1.27, EUR: 1.08, CHF: 1.1, CAD: 0.73, AUD: 0.66, SGD: 0.74, HKD: 0.128, JPY: 0.0064,
+};
+
+/** Normalise a money range to USD using approximate rates. Returns null for an
+ * unknown currency so callers can decline to classify rather than show a wrong
+ * verdict. */
+export function toUsdApprox(range: MoneyRange): MoneyRange | null {
+  if (range.currency === "USD") return range;
+  const rate = APPROX_USD_PER[range.currency];
+  if (!rate) return null;
+  return {
+    low: range.low * rate,
+    base: range.base * rate,
+    high: range.high * rate,
+    currency: "USD",
+  };
+}
+
 /**
  * Classify a computed total against the qualification threshold. We compare on
  * the *range*, not the base: only when the conservative low end already clears

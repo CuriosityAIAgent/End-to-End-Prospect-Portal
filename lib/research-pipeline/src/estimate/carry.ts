@@ -58,9 +58,36 @@ export const CARRY_POINTS_TABLE: Record<CarryTier, Band> = {
   lateral_signon: { low: 0.0025, base: 0.00375, high: 0.005 },
 };
 
-/** Look up the carry-points band for a tier (falls back to mid if unknown). */
-export function carryPointsForTier(tier: string): Band {
-  return CARRY_POINTS_TABLE[tier as CarryTier] ?? CARRY_POINTS_TABLE.vp_mid;
+/** Common model phrasings → canonical tier. The estimator prompt asks for the
+ * enum, but LLM JSON drifts (casing, separators, near-synonyms); we normalise
+ * those rather than dropping a real carry line. */
+const TIER_SYNONYMS: Record<string, CarryTier> = {
+  founder: "founder_managing_partner",
+  founding_partner: "founder_managing_partner",
+  managing_partner: "founder_managing_partner",
+  manager_partner: "founder_managing_partner",
+  senior_managing_director: "senior_partner",
+  partner_senior: "senior_partner",
+  principal_partner: "principal",
+  vice_president: "vp_mid",
+  vp: "vp_mid",
+  mid: "vp_mid",
+  associate: "junior",
+  analyst: "junior",
+  lateral: "lateral_signon",
+  signon: "lateral_signon",
+  sign_on: "lateral_signon",
+};
+
+/** Look up the carry-points band for a tier. Tolerates casing/separator drift and
+ * common synonyms; returns undefined only for a genuinely unrecognised tier — we
+ * FAIL CLOSED there rather than guess (a silent wrong default would be treated as
+ * a code-derived number by the UI/validator). */
+export function carryPointsForTier(tier: string): Band | undefined {
+  const key = tier.trim().toLowerCase().replace(/[\s/&-]+/g, "_").replace(/^_+|_+$/g, "");
+  if (CARRY_POINTS_TABLE[key as CarryTier]) return CARRY_POINTS_TABLE[key as CarryTier];
+  const syn = TIER_SYNONYMS[key];
+  return syn ? CARRY_POINTS_TABLE[syn] : undefined;
 }
 
 /** Round to the nearest $100k so per-line figures read cleanly. */

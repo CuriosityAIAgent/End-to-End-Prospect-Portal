@@ -10,7 +10,7 @@
 
 import { anthropicConfigured, writeWithClaude } from "../write/anthropic";
 import { validateWealthEstimate } from "../verify/wealthEstimate";
-import { computeEstimate, qualify, rollUpConfidence, QUALIFY_THRESHOLD } from "./compute";
+import { computeEstimate, qualify, rollUpConfidence, toUsdApprox, QUALIFY_THRESHOLD } from "./compute";
 import { carryNetRange, carryPointsForTier } from "./carry";
 import type {
   AssumptionBasis,
@@ -30,7 +30,12 @@ import type {
 function withQualification(estimate: WealthEstimate): WealthEstimate {
   if (estimate.refused) return estimate;
   const threshold = QUALIFY_THRESHOLD;
-  const verdict = qualify(estimate.totalNetWorth, threshold);
+  // The bar is in USD. Normalise the total to USD first — comparing a non-USD
+  // range raw against a USD bar misclassifies (e.g. £20–30M would read as
+  // "borderline" when it already clears $25M). Unknown currency → no gate.
+  const totalUsd = toUsdApprox(estimate.totalNetWorth);
+  if (!totalUsd) return estimate;
+  const verdict = qualify(totalUsd, threshold);
   const bar = "$25M";
   const rationale =
     verdict === "above"
@@ -221,10 +226,16 @@ function parseLedger(text: string): DraftedLedger | null {
   // ("the carry number is code-computed, never the model's") and guarantees the
   // counted figure matches the workings shown in the UI / sent to the validator.
   for (const l of lines) {
-    if (l.category === "carry_equity" && l.carry) {
+    if (l.category !== "carry_equity") continue;
+    if (l.carry) {
       l.amount = carryNetRange(l.carry);
       l.annual = undefined;
       l.years = undefined;
+    } else if (!l.annual) {
+      // A carry line with NO valid carry spec and NO annual stream: any `amount`
+      // here is a model-authored number. Drop it — carry wealth is only ever the
+      // code-computed figure, never the model's (compute.ts counts carry amounts).
+      l.amount = undefined;
     }
   }
 
