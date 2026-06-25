@@ -112,6 +112,35 @@ const BASIS_STYLE: Record<string, { label: string; className: string }> = {
   assumption: { label: "assumption", className: "border-stone-300 text-stone-600" },
 };
 
+// ── Qualification gate (>$25M?) ─────────────────────────────────────────────
+// Per banker feedback the only question at this stage is "does the prospect
+// clear the bar?" — a precise range is too wide to be useful. We show the
+// verdict; the range stays internal (it drives this gate + the SoW questions).
+const QUALIFY_THRESHOLD_USD = 25_000_000;
+const QUAL_STYLE: Record<
+  "above" | "borderline" | "below",
+  { className: string; verdict: string }
+> = {
+  above: { className: "bg-emerald-50 border-emerald-200 text-emerald-800", verdict: "Qualifies" },
+  borderline: { className: "bg-amber-50 border-amber-200 text-amber-800", verdict: "Borderline" },
+  below: { className: "bg-stone-100 border-stone-300 text-stone-600", verdict: "Below the bar" },
+};
+
+/** Use the server-computed gate when present; else derive from the range for
+ * back-compat with packs generated before the gate existed. */
+function resolveQualification(
+  estimate: NonNullable<PrepPack["wealthEstimate"]>,
+): { verdict: "above" | "borderline" | "below"; threshold: number; currency: string; rationale: string } | null {
+  if (estimate.qualification) return estimate.qualification;
+  const t = estimate.totalNetWorth;
+  // Only derive a verdict for USD packs — the bar is a USD figure, and legacy
+  // (pre-gate) packs were often GBP; judging a £ range against a $ bar would
+  // mislabel exactly the data this fallback exists to serve.
+  if (!t || (t.low === 0 && t.high === 0) || t.currency !== "USD") return null;
+  const verdict = t.low >= QUALIFY_THRESHOLD_USD ? "above" : t.high < QUALIFY_THRESHOLD_USD ? "below" : "borderline";
+  return { verdict, threshold: QUALIFY_THRESHOLD_USD, currency: "USD", rationale: "" };
+}
+
 function WealthEstimatePanel({ estimate }: { estimate: NonNullable<PrepPack["wealthEstimate"]> }) {
   if (estimate.refused) {
     return (
@@ -130,18 +159,31 @@ function WealthEstimatePanel({ estimate }: { estimate: NonNullable<PrepPack["wea
     if (typeof l.rate === "number") return `${Math.round(l.rate * 100)}%`;
     return "—";
   };
+  const qual = resolveQualification(estimate);
+  const qstyle = qual ? QUAL_STYLE[qual.verdict] : null;
+  const bar = qual ? fmtMoney(qual.threshold, qual.currency) : "$25M";
   return (
     <section className="border rounded p-6 space-y-4" style={{ borderColor: BORDER, background: "#FBFAF7" }}>
-      <Eyebrow>Estimated Net Worth</Eyebrow>
-      <div className="space-y-1">
-        <p className="text-[34px] leading-none font-normal" style={{ fontFamily: SERIF, color: INK }}>
-          {fmtRange(estimate.totalNetWorth)}
-        </p>
-        <p className="text-sm" style={{ color: "#4A4A4A" }}>
-          Liquid {fmtRange(estimate.liquidNetWorth)}
-        </p>
+      <Eyebrow>Wealth Qualification</Eyebrow>
+      <div className="space-y-2">
+        <div className="flex items-baseline gap-3">
+          <p className="text-[34px] leading-none font-normal" style={{ fontFamily: SERIF, color: INK }}>
+            {qstyle ? qstyle.verdict : "—"}
+          </p>
+          <span className="text-sm" style={{ color: "#7A7A6F" }}>
+            against a {bar} net-worth bar
+          </span>
+        </div>
+        {qual?.rationale && (
+          <p className="text-[15px] leading-[1.5]" style={{ color: INK }}>{qual.rationale}</p>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        {qstyle && (
+          <span className={`text-xs px-2 py-0.5 border rounded ${qstyle.className}`}>
+            {qual!.verdict === "above" ? `Above ${bar}` : qual!.verdict === "below" ? `Below ${bar}` : `Around ${bar}`}
+          </span>
+        )}
         <span className={`text-xs px-2 py-0.5 border rounded ${conf.className}`}>{conf.label}</span>
         {estimate.validation && (
           <span className="text-xs" style={{ color: "#7A7A6F" }}>

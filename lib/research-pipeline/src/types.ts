@@ -247,6 +247,26 @@ export interface AssumptionLine {
 
 export type LineVerdict = "ok" | "weak" | "ungrounded" | "implausible";
 
+/**
+ * The qualification gate. Per banker feedback, the only thing that matters at the
+ * prospecting stage is whether the prospect clears the wealth bar — a precise
+ * range ("$25M–$300M") is too wide to be useful. We keep the range internally to
+ * drive this verdict + the SoW questions, but surface ONLY the gate.
+ *   above      — best estimate clears the threshold (range low ≥ threshold)
+ *   borderline — the threshold sits inside the range; confirm in the meeting
+ *   below      — the whole range is under the threshold
+ */
+export type QualificationVerdict = "above" | "borderline" | "below";
+
+export interface Qualification {
+  /** The bar to clear, in the estimate's currency (default $25M). */
+  threshold: number;
+  currency: string;
+  verdict: QualificationVerdict;
+  /** One-line, banker-facing rationale for the verdict. */
+  rationale: string;
+}
+
 /** Independent (cross-model) check of the estimate's ledger. */
 export interface WealthValidation {
   lineVerdicts: {
@@ -278,6 +298,8 @@ export interface WealthEstimate {
   /** True when evidence was too thin to estimate at all. */
   refused?: boolean;
   refusalReason?: string;
+  /** The qualification gate (>$25M?) derived from the range. Absent when refused. */
+  qualification?: Qualification;
   /** Presentation currency. */
   currency: string;
   asOf: string;
