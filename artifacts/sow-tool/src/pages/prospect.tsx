@@ -15,6 +15,7 @@ import {
 import { Layout } from "@/components/layout";
 import { FileNotePanel } from "@/components/file-note-panel";
 import { ProspectPrepPanel } from "@/components/prospect-prep-panel";
+import { PlanOfAction } from "@/components/plan-of-action";
 import { SectionInfo } from "@/components/section-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -293,6 +294,15 @@ export default function Prospect() {
             <div><strong>Date:</strong> {new Date().toLocaleDateString()}</div>
           </div>
         </div>
+
+        {/* Plan of action — the staged prospecting flow + where this prospect sits. */}
+        <PlanOfAction
+          prep={localData.prep as import("@workspace/research-pipeline/types").PrepPack | undefined}
+          briefing={briefing}
+          approachUsed={Array.isArray(localData.approachUsage) && (localData.approachUsage as unknown[]).length > 0}
+          hasFileNote={!!(localData.fileNote as { note?: string } | undefined)?.note?.trim()}
+          isConverted={isConverted}
+        />
 
         {/* The prep — one researched, verified output: the read, the approach
             (cold-call + likely pushback), and the Source-of-Wealth questions. */}
