@@ -722,7 +722,12 @@ export function ProspectPrepPanel({
 
       {shown && (
         <div className="space-y-10 pt-2">
-          {/* Net-worth estimate — the headline read */}
+          {/* Our read — the qualitative narrative LEADS (the banker's conversation
+              opener). Per Rupert the brief should read as a story first — how the
+              wealth was built, the career arc — not a dossier of numbers. */}
+          <ReadSection read={shown.read} fallback={shown.marketRead} />
+
+          {/* Net-worth qualifier — the >$25M gate, beneath the narrative */}
           {shown.wealthEstimate && <WealthEstimatePanel estimate={shown.wealthEstimate} />}
 
           {/* Verification banner */}
@@ -744,9 +749,6 @@ export function ProspectPrepPanel({
               </div>
             );
           })()}
-
-          {/* Our read — structured (legacy prose fallback) */}
-          <ReadSection read={shown.read} fallback={shown.marketRead} />
 
           {/* The approach — Email/Call variants (legacy cold-call fallback) */}
           <ApproachSection approach={shown.approach} fallback={shown.coldCall} onCopyVariant={onApproachCopy} />
