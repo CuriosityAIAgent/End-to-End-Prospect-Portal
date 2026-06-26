@@ -9,6 +9,7 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, jobsTable, type Job } from "@workspace/db";
 import { logger } from "../lib/logger";
+import { ACTIVE_STATUSES, isOrphan } from "./orphan";
 
 export type JobStatus =
   | "queued"
@@ -19,16 +20,22 @@ export type JobStatus =
   | "done"
   | "failed";
 
-const ACTIVE_STATUSES: JobStatus[] = [
-  "queued",
-  "researching",
-  "drafting",
-  "estimating",
-  "verifying",
-];
-
 export function isTerminal(status: string): boolean {
   return status === "done" || status === "failed";
+}
+
+// ── In-process liveness registry ────────────────────────────────────────────
+// The single-instance worker tracks the job ids it is actually running (or about
+// to run). An ACTIVE job in the DB whose id is NOT here belongs to a previous
+// (crashed/redeployed) process — a dead orphan. This is the exact signal that
+// boot recovery approximates; using it directly means we never misjudge a
+// slow-but-live run and we reclaim orphans no matter which stage they died in.
+const liveJobIds = new Set<string>();
+function trackJob(id: string): void {
+  liveJobIds.add(id);
+}
+function untrackJob(id: string): void {
+  liveJobIds.delete(id);
 }
 
 /** Client-safe view of a job (drops internal timestamps we don't surface). */
@@ -75,16 +82,30 @@ export async function enqueueUniqueJob(
         and(
           eq(jobsTable.kind, kind),
           eq(jobsTable.prospectId, prospectId),
-          inArray(jobsTable.status, ACTIVE_STATUSES),
+          inArray(jobsTable.status, [...ACTIVE_STATUSES]),
         ),
       )
       .orderBy(desc(jobsTable.createdAt))
       .limit(1);
-    if (existing) return { job: existing, created: false };
+    if (existing && liveJobIds.has(existing.id)) return { job: existing, created: false };
+    if (existing) {
+      // Active in the DB but NOT live in this process → orphaned by a dead prior
+      // process. Fail it inside this lock, then fall through to start a fresh run
+      // so the prospect is never permanently blocked by a wedged job.
+      await tx
+        .update(jobsTable)
+        .set({ status: "failed", error: "interrupted (orphan — reclaimed on re-run)" })
+        .where(eq(jobsTable.id, existing.id));
+      untrackJob(existing.id);
+      logger.warn({ id: existing.id, prospectId }, "Reclaimed an orphaned job on enqueue");
+    }
     const [row] = await tx
       .insert(jobsTable)
       .values({ kind, prospectId, status: "queued", progress: 0 })
       .returning();
+    // Track immediately on creation (before the caller schedules it) so a
+    // concurrent reattach can't briefly mistake this fresh job for an orphan.
+    trackJob(row.id);
     return { job: row, created: true };
   });
 }
@@ -99,12 +120,28 @@ export async function findActiveJob(kind: string, prospectId: number): Promise<J
       and(
         eq(jobsTable.kind, kind),
         eq(jobsTable.prospectId, prospectId),
-        inArray(jobsTable.status, ACTIVE_STATUSES),
+        inArray(jobsTable.status, [...ACTIVE_STATUSES]),
       ),
     )
     .orderBy(desc(jobsTable.createdAt))
     .limit(1);
+  // Don't reattach the UI to an orphaned (dead-process) job — it would poll a run
+  // nothing will finish. A subsequent enqueue reclaims it.
+  if (row && isOrphan(row, liveJobIds)) return undefined;
   return row;
+}
+
+/** If a job is an orphan (active in the DB but not live in this process), mark it
+ * failed and return the failed view; otherwise return it unchanged. Used on the
+ * reattach path so the UI sees "failed" (and can retry) instead of polling a dead
+ * run forever. */
+export async function reclaimIfOrphan(job: Job): Promise<Job> {
+  if (!isOrphan(job, liveJobIds)) return job;
+  const error = "interrupted (orphan — reclaimed)";
+  await db.update(jobsTable).set({ status: "failed", error }).where(eq(jobsTable.id, job.id));
+  untrackJob(job.id);
+  logger.warn({ id: job.id, prospectId: job.prospectId }, "Reclaimed an orphaned job");
+  return { ...job, status: "failed", error };
 }
 
 export async function latestJob(kind: string, prospectId: number): Promise<Job | undefined> {
@@ -157,8 +194,10 @@ function release(): void {
   running -= 1;
 }
 
-/** Run a job task in the background, respecting the concurrency cap. */
-export function schedule(task: () => Promise<void>): void {
+/** Run a job task in the background, respecting the concurrency cap. Pass the
+ * job id so the in-process liveness registry is cleared when the task ends (so a
+ * finished/failed job is no longer treated as live). */
+export function schedule(task: () => Promise<void>, jobId?: string): void {
   void acquire().then(async () => {
     try {
       await task();
@@ -166,6 +205,7 @@ export function schedule(task: () => Promise<void>): void {
       logger.error({ err }, "Background job task threw");
     } finally {
       release();
+      if (jobId) untrackJob(jobId);
     }
   });
 }
@@ -186,7 +226,7 @@ export async function recoverStaleJobs(): Promise<void> {
     const recovered = await db
       .update(jobsTable)
       .set({ status: "failed", error: "interrupted", heartbeatAt: new Date() })
-      .where(inArray(jobsTable.status, ACTIVE_STATUSES))
+      .where(inArray(jobsTable.status, [...ACTIVE_STATUSES]))
       .returning({ id: jobsTable.id });
     if (recovered.length) {
       logger.warn({ count: recovered.length }, "Recovered orphaned jobs after restart");

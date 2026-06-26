@@ -20,6 +20,7 @@ import { logger } from "../lib/logger";
 import {
   enqueueUniqueJob,
   latestJob,
+  reclaimIfOrphan,
   schedule,
   serializeJob,
   updateJob,
@@ -491,7 +492,7 @@ router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
   // starting a duplicate run.
   const { job, created } = await enqueueUniqueJob("prospect_prep", prospect.id);
   if (created) {
-    schedule(() => runPrepJob(job.id, prospect.id, depth));
+    schedule(() => runPrepJob(job.id, prospect.id, depth), job.id);
   }
   res.status(202).json({ jobId: job.id });
 });
@@ -505,7 +506,10 @@ router.get("/prospects/:id/jobs/latest", async (req, res): Promise<void> => {
     return;
   }
   const kind = typeof req.query.kind === "string" ? req.query.kind : "prospect_prep";
-  const job = await latestJob(kind, params.data.id);
+  let job = await latestJob(kind, params.data.id);
+  // If the latest run is an orphan (active in the DB but from a dead process),
+  // fail it so the UI shows "failed" + retry instead of polling it forever.
+  if (job) job = await reclaimIfOrphan(job);
   res.json(job ? serializeJob(job) : null);
 });
 
