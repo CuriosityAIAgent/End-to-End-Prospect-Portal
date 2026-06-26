@@ -10,7 +10,8 @@
     "start": "node artifacts/api-server/dist/index.mjs",
     "start:deploy": "sh -c 'if [ -n \"$DATABASE_URL\" ]; then pnpm run db:push; else echo \"[start] DATABASE_URL not set — skipping db:push; DB endpoints will 500 until it is provisioned\"; fi; node artifacts/api-server/dist/index.mjs'",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "test": "pnpm -r --if-present run test"
   },
   "private": true,
   "packageManager": "pnpm@11.7.0",

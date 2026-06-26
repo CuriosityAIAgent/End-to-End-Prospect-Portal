@@ -191,7 +191,8 @@ interface DraftedLedger {
   lines: AssumptionLine[];
 }
 
-function parseLedger(text: string): DraftedLedger | null {
+/** Exported for tests — parses the model's ledger JSON and materialises carry. */
+export function parseLedger(text: string): DraftedLedger | null {
   let raw: Record<string, any>;
   try {
     const s = text.indexOf("{");
