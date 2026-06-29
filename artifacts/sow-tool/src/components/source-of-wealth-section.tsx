@@ -195,9 +195,10 @@ export function SourceOfWealthSection({
             <h3 className="font-serif text-lg">Source of Wealth statement</h3>
             <p className="text-sm text-muted-foreground">
               Draft a regulator-facing narrative of how the client built their wealth, synthesised
-              from the meeting note and any pre-meeting briefing. Review every line — the assistant
-              never fabricates, leaving sections blank where there is no basis, and frames inferences
-              as plausibility. Edit freely and add anything further below.
+              from the meeting note and pre-meeting briefing. Written in a definitive voice — the
+              conversations have happened — stating what the client has confirmed; it never
+              fabricates and leaves a section blank where there is no basis. Review every line, edit
+              freely, and add anything further below.
             </p>
           </div>
         </div>
