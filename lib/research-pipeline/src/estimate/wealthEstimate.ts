@@ -12,6 +12,7 @@ import { anthropicConfigured, writeWithClaude } from "../write/anthropic";
 import { validateWealthEstimate } from "../verify/wealthEstimate";
 import { computeEstimate, qualify, rollUpConfidence, toUsdApprox, QUALIFY_THRESHOLD } from "./compute";
 import { carryNetRange, carryPointsForTier } from "./carry";
+import { peCompReference } from "../reference/peComp";
 import type {
   AssumptionBasis,
   AssumptionCategory,
@@ -74,7 +75,10 @@ const ESTIMATOR_INSTRUCTIONS = [
   "- One-off items as liquidity_event (exit / IPO / sale) and known_asset (property, shareholding): give a one-off AMOUNT and whether it is liquid.",
   "- Modelling parameters as tax, savings_rate, investment_return: give a rate (0..1).",
   "",
-  "Tag every line with a basis: 'from-source' (a figure actually stated in the SOURCE MATERIAL — cite its passage index like [3] in sourceRef), 'benchmark-inferred' (a comp band you infer from the role/industry/era — name the comparable in the label), or 'assumption' (a modelling parameter). Be honest: only use 'from-source' when the number is really in the material. Give each line a confidence (high/medium/low).",
+  "For PRIVATE EQUITY roles, GROUND the role_comp (cash) ranges in these published-survey benchmarks rather than guessing (keep basis 'benchmark-inferred' — you are still inferring where THIS person sits in the band and may scale for fund size — and name the source in the line label). Choose carry_equity.seniorityTier from the person's role/tenure (any of the seniorityTier values above, including lateral_signon) — our carry table, not the survey, prices the carry. These PE benchmarks do NOT apply to hedge-fund or non-PE roles — use your own judgement there.",
+  peCompReference(),
+  "",
+  "Tag every line with a basis: 'from-source' (a figure actually stated in the SOURCE MATERIAL — cite its passage index like [3] in sourceRef), 'benchmark-inferred' (a comp band you infer from the role/industry/era — name the comparable, e.g. a published survey, in the label), or 'assumption' (a modelling parameter). Be honest: only use 'from-source' when the number is really in the material. Give each line a confidence (high/medium/low).",
   "",
   "Present ALL monetary values in USD. If a source figure is in another currency (e.g. GBP), convert it to USD at an approximate spot rate and note the original in the line label. Set currency to \"USD\". Write a one-line `headline` summarising the basis (e.g. '≈18 yrs as a PE managing partner; comp extrapolation plus a reported 2019 stake sale').",
   "",

@@ -15,6 +15,13 @@ export {
 } from "./write/anthropic";
 export { draft, type DraftOptions, type DraftResult } from "./write/draft";
 export { prepResponseSpec, parsePrepResponse, type ParsedPrep } from "./write/prepSchema";
+export {
+  PE_COMP_SOURCES,
+  PE_CASH_COMP_USD,
+  PE_CARRY_PERSONAL_PCT_PARTNER,
+  peCompReference,
+  type PeCompSource,
+} from "./reference/peComp";
 
 // Robust retrieval — DataForSEO + Jina
 export { retrieve, retrievalConfigured, type RetrieveOptions } from "./sources/retrieve";
