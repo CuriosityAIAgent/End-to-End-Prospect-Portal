@@ -5,22 +5,22 @@ import { reviewTypeOptions } from "./sowCatalog";
 // prospect or already an onboarding client — sits on exactly one of these five
 // stages. Stage is derived on the frontend from the data we already have; there
 // is no dedicated "stage" column on the backend.
-export type JourneyStageId = "identify" | "cold_call" | "brief" | "meet" | "onboard";
+// The four journey steps — the SAME backbone as the prospect/assessment page
+// step-rail, so the list and the detail pages speak one vocabulary.
+export type JourneyStageId = "brief" | "approach" | "meet" | "sow";
 
 export const JOURNEY_STAGES: { id: JourneyStageId; label: string }[] = [
-  { id: "identify", label: "Identify" },
-  { id: "cold_call", label: "Cold Call" },
-  { id: "brief", label: "Brief" },
-  { id: "meet", label: "Meet" },
-  { id: "onboard", label: "Onboard" },
+  { id: "brief", label: "Brief & qualify" },
+  { id: "approach", label: "Approach" },
+  { id: "meet", label: "Meeting" },
+  { id: "sow", label: "Source of Wealth" },
 ];
 
 const STAGE_INDEX: Record<JourneyStageId, number> = {
-  identify: 0,
-  cold_call: 1,
-  brief: 2,
-  meet: 3,
-  onboard: 4,
+  brief: 0,
+  approach: 1,
+  meet: 2,
+  sow: 3,
 };
 
 export type JourneyKind = "prospect" | "assessment";
@@ -61,62 +61,43 @@ function reviewTypeLabel(value: AssessmentSummary["reviewType"]): string | null 
 // Maps the 6-value prospect status enum onto the 5 journey stages. `converted`
 // resolves to onboard (the client is being onboarded); `dormant` keeps its
 // nominal position at identify but is flagged and de-prioritised separately.
-function prospectStage(status: ProspectSummary["status"]): JourneyStageId {
-  switch (status) {
-    case "researching":
-      return "cold_call";
-    case "briefed":
-      return "brief";
-    case "outreach":
-      return "meet";
-    case "converted":
-      return "onboard";
-    case "identified":
-    case "dormant":
-    default:
-      return "identify";
-  }
+// Derived from the SAME signals the prospect page's step-rail uses (prep →
+// approach → file note → convert), so the list and the detail page never
+// diverge. The current stage is the first step not yet done.
+function prospectStage(p: ProspectSummary): JourneyStageId {
+  if (p.status === "converted") return "sow"; // ready to build the assessment
+  if (!p.hasPrep) return "brief";
+  if (!p.approachUsed) return "approach";
+  if (!p.hasFileNote) return "meet";
+  return "sow";
 }
 
-function prospectNextAction(
-  stage: JourneyStageId,
-  hasBriefing: boolean,
-  convertedNoAssessment: boolean,
-): string {
+function prospectNextAction(stage: JourneyStageId, convertedNoAssessment: boolean): string {
   if (convertedNoAssessment) return "Complete conversion";
   switch (stage) {
-    case "identify":
-      return "Draft cold-call anchor";
-    case "cold_call":
-      return "Log call outcome";
     case "brief":
-      return hasBriefing ? "Review AI briefing" : "Generate AI briefing";
+      return "Generate brief";
+    case "approach":
+      return "Make the approach";
     case "meet":
-      return "Prepare question guide";
-    case "onboard":
-      return "Complete conversion";
+      return "Capture meeting note";
+    case "sow":
+      return "Convert to Source of Wealth";
   }
 }
 
-function prospectMeta(
-  stage: JourneyStageId,
-  hasBriefing: boolean,
-  dormant: boolean,
-  convertedNoAssessment: boolean,
-): string {
+function prospectMeta(stage: JourneyStageId, dormant: boolean, convertedNoAssessment: boolean): string {
   if (dormant) return "Dormant — revisit later";
   if (convertedNoAssessment) return "Conversion incomplete";
   switch (stage) {
-    case "identify":
-      return "Newly identified";
-    case "cold_call":
-      return "Working the approach";
     case "brief":
-      return hasBriefing ? "AI briefing ready" : "Briefing pending";
+      return "Brief & qualify";
+    case "approach":
+      return "Ready to approach";
     case "meet":
       return "Ready to meet";
-    case "onboard":
-      return "Conversion incomplete";
+    case "sow":
+      return "Ready to convert";
   }
 }
 
@@ -151,6 +132,10 @@ export function buildJourney(
     const enhanced = a.riskRating === "enhanced";
     const completed = a.status === "completed";
     const statusLabel = ASSESSMENT_STATUS_LABEL[a.status];
+    // Mirrors the assessment page: until a meeting note exists (or it's signed
+    // off) the live step is the meeting note that the statement is drafted from.
+    const meetingDone = a.hasFileNote || completed;
+    const stage: JourneyStageId = meetingDone ? "sow" : "meet";
     items.push({
       key: `assessment-${a.id}`,
       kind: "assessment",
@@ -158,11 +143,11 @@ export function buildJourney(
       name: a.clientName,
       segment: reviewTypeLabel(a.reviewType) ?? "Client",
       relationshipManager: a.relationshipManager ?? null,
-      stage: "onboard",
-      stageIndex: STAGE_INDEX.onboard,
-      nextAction: assessmentNextAction(a.status),
-      meta: enhanced ? `${statusLabel} · EDD` : statusLabel,
-      urgency: enhanced && !completed ? "high" : "normal",
+      stage,
+      stageIndex: STAGE_INDEX[stage],
+      nextAction: meetingDone ? assessmentNextAction(a.status) : "Capture meeting note",
+      meta: meetingDone ? (enhanced ? `${statusLabel} · EDD` : statusLabel) : "Meeting note pending",
+      urgency: (enhanced && !completed) || !meetingDone ? "high" : "normal",
       dormant: false,
       enhanced,
       href: `/assessment/${a.id}`,
@@ -177,7 +162,7 @@ export function buildJourney(
 
     const dormant = p.status === "dormant";
     const convertedNoAssessment = p.status === "converted";
-    const stage = prospectStage(p.status);
+    const stage = prospectStage(p);
     items.push({
       key: `prospect-${p.id}`,
       kind: "prospect",
@@ -187,8 +172,8 @@ export function buildJourney(
       relationshipManager: p.relationshipManager ?? null,
       stage,
       stageIndex: STAGE_INDEX[stage],
-      nextAction: prospectNextAction(stage, p.hasBriefing, convertedNoAssessment),
-      meta: prospectMeta(stage, p.hasBriefing, dormant, convertedNoAssessment),
+      nextAction: prospectNextAction(stage, convertedNoAssessment),
+      meta: prospectMeta(stage, dormant, convertedNoAssessment),
       urgency: convertedNoAssessment || stage === "meet" ? "high" : "normal",
       dormant,
       enhanced: false,
@@ -211,11 +196,10 @@ export function buildJourney(
 /** Per-stage counts for the stage rail. Dormant relationships are excluded. */
 export function stageCounts(items: JourneyItem[]): Record<JourneyStageId, number> {
   const counts: Record<JourneyStageId, number> = {
-    identify: 0,
-    cold_call: 0,
     brief: 0,
+    approach: 0,
     meet: 0,
-    onboard: 0,
+    sow: 0,
   };
   for (const item of items) {
     if (!item.dormant) counts[item.stage] += 1;

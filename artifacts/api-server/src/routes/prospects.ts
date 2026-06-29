@@ -80,17 +80,27 @@ router.get("/prospects", async (_req, res): Promise<void> => {
 
   res.json(
     ListProspectsResponse.parse(
-      rows.map((r) => ({
-        id: r.id,
-        name: r.name,
-        segment: r.segment ?? null,
-        relationshipManager: r.relationshipManager ?? null,
-        status: r.status,
-        hasBriefing: r.briefing != null,
-        convertedAssessmentId: r.convertedAssessmentId ?? null,
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-      })),
+      rows.map((r) => {
+        // Step signals for the journey list, derived the same way the prospect
+        // page's step-rail does, so the list and the detail page agree.
+        const data = (r.data ?? {}) as Record<string, unknown>;
+        const approachUsage = data.approachUsage;
+        const fileNote = data.fileNote as { note?: string } | undefined;
+        return {
+          id: r.id,
+          name: r.name,
+          segment: r.segment ?? null,
+          relationshipManager: r.relationshipManager ?? null,
+          status: r.status,
+          hasBriefing: r.briefing != null,
+          hasPrep: data.prep != null,
+          approachUsed: Array.isArray(approachUsage) && approachUsage.length > 0,
+          hasFileNote: !!(fileNote && typeof fileNote === "object" && (fileNote.note ?? "").trim()),
+          convertedAssessmentId: r.convertedAssessmentId ?? null,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+        };
+      }),
     ),
   );
 });

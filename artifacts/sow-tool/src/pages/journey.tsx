@@ -40,16 +40,6 @@ import {
   UserPlus,
   Compass,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-
-const STAGE_ICONS: Record<JourneyStageId, LucideIcon> = {
-  identify: Search,
-  cold_call: Phone,
-  brief: FileText,
-  meet: Users,
-  onboard: ShieldCheck,
-};
-
 type StageFilter = JourneyStageId | "all";
 
 export default function Journey() {
@@ -414,7 +404,7 @@ function JourneyRow({ item, index, onOpen }: { item: JourneyItem; index: number;
       <div className="flex-1 min-w-0 hidden md:block">
         <div className="text-sm text-foreground truncate">{item.meta}</div>
         <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
-          <span>RM: {item.relationshipManager || "Unassigned"}</span>
+          <span>Banker: {item.relationshipManager || "Unassigned"}</span>
           <span className="w-1 h-1 rounded-full bg-border" />
           <span>{JOURNEY_STAGES[item.stageIndex].label}</span>
         </div>

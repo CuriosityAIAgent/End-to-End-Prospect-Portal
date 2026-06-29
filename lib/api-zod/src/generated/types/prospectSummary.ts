@@ -16,6 +16,12 @@ export interface ProspectSummary {
   relationshipManager?: string | null;
   status: ProspectStatus;
   hasBriefing: boolean;
+  /** A researched prep pack exists (the "Brief & qualify" step is done). */
+  hasPrep: boolean;
+  /** An outreach variant has been used (the "Approach" step is underway/done). */
+  approachUsed: boolean;
+  /** A meeting note has been captured (the "Meeting" step is done). */
+  hasFileNote: boolean;
   /** @nullable */
   convertedAssessmentId?: number | null;
   createdAt: Date;

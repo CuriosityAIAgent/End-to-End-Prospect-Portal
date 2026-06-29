@@ -19,6 +19,8 @@ export interface AssessmentSummary {
   reviewType?: ReviewType;
   riskRating?: RiskRating;
   status: AssessmentStatus;
+  /** A meeting note has been captured (the "Meeting" step is done). */
+  hasFileNote: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

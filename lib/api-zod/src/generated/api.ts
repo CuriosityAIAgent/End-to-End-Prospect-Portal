@@ -28,6 +28,7 @@ export const ListAssessmentsResponseItem = zod.object({
   "reviewType": zod.enum(['onboarding', 'periodic_review', 'trigger_event']).optional(),
   "riskRating": zod.enum(['standard', 'enhanced']).optional(),
   "status": zod.enum(['draft', 'in_progress', 'completed']),
+  "hasFileNote": zod.boolean().describe('A meeting note has been captured (the \"Meeting\" step is done).'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -135,6 +136,7 @@ export const GetOverviewResponse = zod.object({
   "reviewType": zod.enum(['onboarding', 'periodic_review', 'trigger_event']).optional(),
   "riskRating": zod.enum(['standard', 'enhanced']).optional(),
   "status": zod.enum(['draft', 'in_progress', 'completed']),
+  "hasFileNote": zod.boolean().describe('A meeting note has been captured (the \"Meeting\" step is done).'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 }))
@@ -151,6 +153,9 @@ export const ListProspectsResponseItem = zod.object({
   "relationshipManager": zod.string().nullish(),
   "status": zod.enum(['identified', 'researching', 'briefed', 'outreach', 'converted', 'dormant']),
   "hasBriefing": zod.boolean(),
+  "hasPrep": zod.boolean().describe('A researched prep pack exists (the \"Brief & qualify\" step is done).'),
+  "approachUsed": zod.boolean().describe('An outreach variant has been used (the \"Approach\" step is underway\/done).'),
+  "hasFileNote": zod.boolean().describe('A meeting note has been captured (the \"Meeting\" step is done).'),
   "convertedAssessmentId": zod.number().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()

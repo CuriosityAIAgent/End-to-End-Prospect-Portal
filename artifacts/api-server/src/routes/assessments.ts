@@ -35,6 +35,7 @@ router.get("/assessments", async (_req, res): Promise<void> => {
       reviewType: assessmentsTable.reviewType,
       riskRating: assessmentsTable.riskRating,
       status: assessmentsTable.status,
+      data: assessmentsTable.data,
       createdAt: assessmentsTable.createdAt,
       updatedAt: assessmentsTable.updatedAt,
     })
@@ -43,11 +44,17 @@ router.get("/assessments", async (_req, res): Promise<void> => {
 
   res.json(
     ListAssessmentsResponse.parse(
-      rows.map((r) => ({
-        ...r,
-        reviewType: r.reviewType ?? undefined,
-        riskRating: r.riskRating ?? undefined,
-      })),
+      rows.map(({ data, ...r }) => {
+        const fileNote = (data as Record<string, unknown> | null)?.fileNote as
+          | { note?: string }
+          | undefined;
+        return {
+          ...r,
+          reviewType: r.reviewType ?? undefined,
+          riskRating: r.riskRating ?? undefined,
+          hasFileNote: !!(fileNote && typeof fileNote === "object" && (fileNote.note ?? "").trim()),
+        };
+      }),
     ),
   );
 });
@@ -103,6 +110,7 @@ router.get("/assessments-overview", async (_req, res): Promise<void> => {
       reviewType: assessmentsTable.reviewType,
       riskRating: assessmentsTable.riskRating,
       status: assessmentsTable.status,
+      data: assessmentsTable.data,
       createdAt: assessmentsTable.createdAt,
       updatedAt: assessmentsTable.updatedAt,
     })
@@ -117,11 +125,17 @@ router.get("/assessments-overview", async (_req, res): Promise<void> => {
       total,
       byStatus: statusRows,
       byRisk: riskRows.map((r) => ({ riskRating: r.riskRating, count: r.count })),
-      recentlyUpdated: recent.map((r) => ({
-        ...r,
-        reviewType: r.reviewType ?? undefined,
-        riskRating: r.riskRating ?? undefined,
-      })),
+      recentlyUpdated: recent.map(({ data, ...r }) => {
+        const fileNote = (data as Record<string, unknown> | null)?.fileNote as
+          | { note?: string }
+          | undefined;
+        return {
+          ...r,
+          reviewType: r.reviewType ?? undefined,
+          riskRating: r.riskRating ?? undefined,
+          hasFileNote: !!(fileNote && typeof fileNote === "object" && (fileNote.note ?? "").trim()),
+        };
+      }),
     }),
   );
 });

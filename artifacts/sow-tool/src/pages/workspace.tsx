@@ -183,7 +183,10 @@ export default function Workspace() {
   const preStatus: StepStatus = fromProspect ? "done" : "todo";
   // A completed assessment is fully done even if it predates the file-note step.
   const meetingDone = hasFileNote || isComplete;
-  // Open on the first live step that still needs work (meeting note before statement).
+  // Open on the first live step that still needs work (the meeting note feeds the
+  // statement). The journey LIST shows the macro funnel phase ("Source of
+  // Wealth"); this in-page default is the next action within it — intentionally
+  // distinct views, not a mismatch.
   const activeKey = activeStep ?? (meetingDone ? "sow" : "meeting");
 
   const steps: JourneyStep[] = [

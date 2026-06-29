@@ -731,6 +731,7 @@ components:
         - id
         - clientName
         - status
+        - hasFileNote
         - createdAt
         - updatedAt
       properties:
@@ -748,6 +749,9 @@ components:
           $ref: "#/components/schemas/RiskRating"
         status:
           $ref: "#/components/schemas/AssessmentStatus"
+        hasFileNote:
+          type: boolean
+          description: A meeting note has been captured (the "Meeting" step is done).
         createdAt:
           type: string
           format: date-time
@@ -915,6 +919,9 @@ components:
         - name
         - status
         - hasBriefing
+        - hasPrep
+        - approachUsed
+        - hasFileNote
         - createdAt
         - updatedAt
       properties:
@@ -930,6 +937,15 @@ components:
           $ref: "#/components/schemas/ProspectStatus"
         hasBriefing:
           type: boolean
+        hasPrep:
+          type: boolean
+          description: A researched prep pack exists (the "Brief & qualify" step is done).
+        approachUsed:
+          type: boolean
+          description: An outreach variant has been used (the "Approach" step is underway/done).
+        hasFileNote:
+          type: boolean
+          description: A meeting note has been captured (the "Meeting" step is done).
         convertedAssessmentId:
           type: ["integer", "null"]
         createdAt:

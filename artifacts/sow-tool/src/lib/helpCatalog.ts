@@ -114,8 +114,8 @@ export const helpCatalog: Record<string, HelpEntry> = {
   journey: {
     title: "The Prospecting Journey",
     body: [
-      "One continuous view of every relationship across five stages: Identify, Cold Call, Brief, Meet, and Onboard. Prospects and onboarding assessments sit on the same rail.",
-      "Use the Next Actions worklist to see what each relationship needs next, and the stage filters to focus on one phase at a time.",
+      "One continuous view of every relationship across the four steps: Brief & qualify, Approach, Meeting, and Source of Wealth. Prospects and onboarding assessments sit on the same rail as the detail pages.",
+      "Each row shows where the relationship sits and the single next action it needs.",
     ],
   },
 };
