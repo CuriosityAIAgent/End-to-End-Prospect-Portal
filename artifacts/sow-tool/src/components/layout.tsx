@@ -4,8 +4,9 @@ import { Link, useLocation } from "wouter";
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
 
-  const isJourney = location === "/" || location.startsWith("/assessment") || location.startsWith("/prospect/");
-  const isProspecting = location.startsWith("/prospecting");
+  // One list, one nav item. Active across the list and the detail pages.
+  const isPipeline =
+    location === "/" || location.startsWith("/assessment") || location.startsWith("/prospect");
 
   const navLink = (active: boolean) =>
     `text-sm transition-colors pb-1 border-b-2 ${
@@ -25,8 +26,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </span>
           </Link>
           <nav className="flex items-center gap-8">
-            <Link href="/" className={navLink(isJourney)}>Journey</Link>
-            <Link href="/prospecting" className={navLink(isProspecting)}>Pipeline</Link>
+            <Link href="/" className={navLink(isPipeline)}>Pipeline</Link>
           </nav>
         </div>
       </header>

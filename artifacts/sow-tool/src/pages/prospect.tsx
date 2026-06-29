@@ -149,7 +149,7 @@ export default function Prospect() {
     deleteProspect.mutate({ id }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListProspectsQueryKey() });
-        setLocation("/prospecting");
+        setLocation("/");
       },
       onError: () => {
         savesBlocked.current = false;
@@ -163,7 +163,7 @@ export default function Prospect() {
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <AlertCircle className="w-12 h-12 text-destructive mb-4" />
           <h2 className="text-xl font-serif mb-2">Prospect not found</h2>
-          <Button variant="outline" onClick={() => setLocation("/prospecting")}>Return to Pipeline</Button>
+          <Button variant="outline" onClick={() => setLocation("/")}>Return to Pipeline</Button>
         </div>
       </Layout>
     );
@@ -197,7 +197,9 @@ export default function Prospect() {
   ];
   const currentIdx = stepDefs.findIndex((s) => !s.done);
   const currentKey = stepDefs[currentIdx === -1 ? stepDefs.length - 1 : currentIdx].key;
+  const currentStageLabel = stepDefs.find((s) => s.key === currentKey)?.label ?? "";
   const activeKey = activeStep ?? currentKey;
+  const isDormant = localMeta.status === "dormant";
 
   const steps: JourneyStep[] = stepDefs.map((s) => ({
     key: s.key,
@@ -227,7 +229,7 @@ export default function Prospect() {
         {/* Header controls — not printed */}
         <div className="flex flex-col gap-4 print:hidden">
           <div className="flex items-center justify-between">
-            <Button variant="ghost" size="sm" onClick={() => setLocation("/prospecting")} className="text-muted-foreground -ml-3">
+            <Button variant="ghost" size="sm" onClick={() => setLocation("/")} className="text-muted-foreground -ml-3">
               <ChevronLeft className="w-4 h-4 mr-1" /> Back
             </Button>
             <div className="flex items-center gap-3">
@@ -274,9 +276,8 @@ export default function Prospect() {
               <div>
                 <h1 className="text-3xl font-serif text-foreground mb-2">{prospect.name}</h1>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                  <span className="uppercase tracking-wider font-semibold text-[10px] px-2 py-0.5 border border-border bg-secondary">
-                    {prospectStatusLabel(prospect.status)}
-                  </span>
+                  {/* Stage is shown by the Plan of action rail (not the legacy
+                      status enum, which used a different vocabulary). */}
                   <span>Added {new Date(prospect.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
@@ -292,17 +293,6 @@ export default function Prospect() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Stage</label>
-                    <Select value={localMeta.status} onValueChange={(v) => handleMetaChange("status", v)}>
-                      <SelectTrigger className="h-8 rounded-md border-border bg-background text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-md">
-                        {prospectStatuses.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Banker</label>
                     <Input
                       value={localMeta.relationshipManager}
@@ -311,6 +301,27 @@ export default function Prospect() {
                       className="h-8 rounded-md border-border bg-background text-sm"
                     />
                   </div>
+                  {/* Stage itself is derived (shown by the Plan of action rail). The
+                      only non-derived lifecycle state is whether the prospect is
+                      parked, so we keep a focused Active/Dormant control — not the
+                      old stage enum that contradicted the rail. */}
+                  {localMeta.status !== "converted" && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</label>
+                      <Select
+                        value={isDormant ? "dormant" : "active"}
+                        onValueChange={(v) => handleMetaChange("status", v === "dormant" ? "dormant" : "identified")}
+                      >
+                        <SelectTrigger className="h-8 rounded-md border-border bg-background text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-md">
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="dormant">Dormant</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -324,7 +335,7 @@ export default function Prospect() {
             <div><strong>Prospect:</strong> {prospect.name}</div>
             <div><strong>Segment:</strong> {localMeta.segment || "N/A"}</div>
             <div><strong>Banker:</strong> {localMeta.relationshipManager || "N/A"}</div>
-            <div><strong>Stage:</strong> {prospectStatusLabel(localMeta.status)}</div>
+            <div><strong>Stage:</strong> {isDormant ? "Dormant" : currentStageLabel}</div>
             <div><strong>Date:</strong> {new Date().toLocaleDateString()}</div>
           </div>
         </div>

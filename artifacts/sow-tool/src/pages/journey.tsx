@@ -156,7 +156,7 @@ export default function Journey() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <h1 className="text-4xl font-serif text-foreground">Prospecting Journey</h1>
+              <h1 className="text-4xl font-serif text-foreground">Pipeline</h1>
               <SectionInfo id="journey" />
             </div>
             <p className="text-muted-foreground">
