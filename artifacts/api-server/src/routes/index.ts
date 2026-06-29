@@ -7,6 +7,7 @@ import fileNotesRouter from "./fileNotes";
 import sourceOfWealthRouter from "./sourceOfWealth";
 import transcriptionRouter from "./transcription";
 import storageRouter from "./storage";
+import fcaRouter from "./fca";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(fileNotesRouter);
 router.use(sourceOfWealthRouter);
 router.use(transcriptionRouter);
 router.use(storageRouter);
+router.use(fcaRouter);
 
 export default router;

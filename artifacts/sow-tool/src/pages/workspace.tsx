@@ -12,6 +12,7 @@ import {
 import { Layout } from "@/components/layout";
 import { FileNotePanel } from "@/components/file-note-panel";
 import { SourceOfWealthSection } from "@/components/source-of-wealth-section";
+import { CorroborationDocuments, type CorroborationData } from "@/components/corroboration-documents";
 import { JourneyRail, StepSection, type JourneyStep, type StepStatus } from "@/components/journey-rail";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -381,6 +382,13 @@ export default function Workspace() {
                     return next;
                   })
                 }
+              />
+
+              <CorroborationDocuments
+                key={id}
+                clientName={assessment.clientName}
+                value={localData["sow.corroboration"] as CorroborationData | undefined}
+                onChange={(v) => handleDataChange("sow.corroboration", v)}
               />
 
               <div className="pt-8 mt-8 border-t border-border flex justify-end print:hidden">
