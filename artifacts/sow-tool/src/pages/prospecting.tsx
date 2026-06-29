@@ -108,7 +108,7 @@ export default function Prospecting() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <label htmlFor="p-rm" className="text-sm font-medium">Relationship Manager <span className="text-muted-foreground font-normal">(optional)</span></label>
+                  <label htmlFor="p-rm" className="text-sm font-medium">Banker <span className="text-muted-foreground font-normal">(optional)</span></label>
                   <Input
                     id="p-rm"
                     value={newRm}
@@ -194,7 +194,7 @@ export default function Prospecting() {
                       </div>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
                         {p.segment && <span>{p.segment}</span>}
-                        <span>RM: {p.relationshipManager || "Unassigned"}</span>
+                        <span>Banker: {p.relationshipManager || "Unassigned"}</span>
                         <span>Updated {format(new Date(p.updatedAt), "MMM d, yyyy")}</span>
                       </div>
                     </div>

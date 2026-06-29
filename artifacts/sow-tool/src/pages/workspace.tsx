@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { 
-  useGetAssessment, 
+import {
+  useGetAssessment,
   useUpdateAssessment,
   useDeleteAssessment,
   getGetAssessmentQueryKey,
@@ -12,27 +12,18 @@ import {
 import { Layout } from "@/components/layout";
 import { FileNotePanel } from "@/components/file-note-panel";
 import { SourceOfWealthSection } from "@/components/source-of-wealth-section";
-import { SectionInfo } from "@/components/section-info";
+import { JourneyRail, StepSection, type JourneyStep, type StepStatus } from "@/components/journey-rail";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { calculateProgress } from "@/lib/progress";
-import { 
-  wealthCategories, 
-  sourceOfFundsQuestions, 
-  sourceOfFundsDocuments, 
-  plausibilityChecks, 
-  redFlags, 
-  signOffFields,
-  statusOptions,
-  riskRatingOptions,
-  reviewTypeOptions
+import {
+  statusOptions, riskRatingOptions, reviewTypeOptions,
+  wealthCategories, sourceOfFundsQuestions, sourceOfFundsDocuments,
+  plausibilityChecks, redFlags, signOffFields,
 } from "@/lib/sowCatalog";
-import { 
-  Printer, Trash2, ChevronLeft, Save, AlertCircle, CheckCircle2, 
-  Briefcase, CheckSquare, ShieldAlert, FileText, ChevronDown, ChevronRight
+import {
+  Printer, Trash2, ChevronLeft, Save, AlertCircle, CheckCircle2
 } from "lucide-react";
 import {
   AlertDialog,
@@ -47,24 +38,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
 
-// Document state options
-const DOC_STATES = [
-  { value: "pending", label: "Pending" },
-  { value: "provided", label: "Provided & Verified" },
-  { value: "waived", label: "Waived (Rationale Required)" },
-  { value: "na", label: "Not Applicable" },
-] as const;
-
 export default function Workspace() {
   const [, params] = useRoute("/assessment/:id");
   const [, setLocation] = useLocation();
   const id = params?.id ? parseInt(params.id, 10) : 0;
   const queryClient = useQueryClient();
 
-  const { data: assessment, isLoading, error } = useGetAssessment(id, { 
-    query: { enabled: !!id, queryKey: getGetAssessmentQueryKey(id) } 
+  const { data: assessment, isLoading, error } = useGetAssessment(id, {
+    query: { enabled: !!id, queryKey: getGetAssessmentQueryKey(id) }
   });
-  
+
   const updateAssessment = useUpdateAssessment();
   const deleteAssessment = useDeleteAssessment();
 
@@ -76,8 +59,10 @@ export default function Workspace() {
     clientReference: "",
     relationshipManager: ""
   });
-  
+
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
+  // Which journey step is expanded. null = default to Source of Wealth.
+  const [activeStep, setActiveStep] = useState<string | null>(null);
   const initializedForId = useRef<number | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
@@ -97,7 +82,7 @@ export default function Workspace() {
 
   const triggerSave = useCallback((newData: Record<string, any>, newMeta: typeof localMeta) => {
     setSaveStatus("saving");
-    
+
     // Clear existing timeout
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -183,12 +168,44 @@ export default function Workspace() {
     );
   }
 
-  const progress = calculateProgress(localData);
+  const progress = calculateProgress(localData, { complete: localMeta.status === "completed" });
+
+  // ── Journey steps — same backbone as the prospect page. Brief & Approach
+  // happened pre-convert (they live on the prospect record), so they show as
+  // done context here; Meeting and Source of Wealth are the live steps. ──
+  const hasFileNote = !!(localData.fileNote as { note?: string } | undefined)?.note?.trim();
+  const isComplete = localMeta.status === "completed";
+  // A converted assessment carries the prospect's profile across (data.prospectProfile);
+  // an assessment created directly from the Journey page does not — so don't claim
+  // the pre-convert steps were done for standalone assessments.
+  const fromProspect = !!localData.prospectProfile;
+  const preStatus: StepStatus = fromProspect ? "done" : "todo";
+  // A completed assessment is fully done even if it predates the file-note step.
+  const meetingDone = hasFileNote || isComplete;
+  // Open on the first live step that still needs work (meeting note before statement).
+  const activeKey = activeStep ?? (meetingDone ? "sow" : "meeting");
+
+  const steps: JourneyStep[] = [
+    { key: "brief", label: "Brief & qualify", status: preStatus, disabled: true },
+    { key: "approach", label: "Approach", status: preStatus, disabled: true },
+    { key: "meeting", label: "Meeting", status: meetingDone ? "done" : activeKey === "meeting" ? "current" : "todo" },
+    { key: "sow", label: "Source of Wealth", status: isComplete ? "done" : activeKey === "sow" ? "current" : "todo" },
+  ];
+  const statusOf = (key: string) => steps.find((s) => s.key === key)!.status;
+
+  const selectStep = (key: string) => {
+    // Brief & Approach are context-only on this page (disabled in the rail).
+    if (key !== "meeting" && key !== "sow") return;
+    setActiveStep(key);
+    requestAnimationFrame(() =>
+      document.getElementById(`step-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+  };
 
   return (
     <Layout>
-      <div className="max-w-5xl mx-auto flex flex-col gap-8 pb-24 print:pb-0">
-        
+      <div className="max-w-5xl mx-auto flex flex-col gap-8 pb-24 print:pb-0 min-w-0">
+
         {/* Workspace Header - Not printed */}
         <div className="flex flex-col gap-4 print:hidden">
           <div className="flex items-center justify-between">
@@ -245,7 +262,7 @@ export default function Workspace() {
                   <span>Created {new Date(assessment.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
-              
+
               <div className="flex flex-col gap-4 min-w-[250px]">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
@@ -271,7 +288,7 @@ export default function Workspace() {
                     </Select>
                   </div>
                 </div>
-                
+
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     <span>Completion</span>
@@ -297,291 +314,175 @@ export default function Workspace() {
           </div>
         </div>
 
-        {/* Meeting file note */}
-        <FileNotePanel
-          value={localData.fileNote}
-          onChange={(v) => handleDataChange("fileNote", v)}
-          contactName={assessment.clientName}
-          defaultMeetingType="Client review"
-        />
+        {/* Journey — same rail + accordion as the prospect page, so the flow is
+            continuous across convert. Brief & Approach are done context; the
+            live work here is the meeting note and the Source of Wealth statement. */}
+        <div className="lg:grid lg:grid-cols-[190px_minmax(0,1fr)] lg:gap-8 min-w-0">
+          <JourneyRail steps={steps} activeKey={activeKey} onSelect={selectStep} />
 
-        {/* Questionnaire Form */}
-        <div className="flex flex-col gap-12">
-          
-          {/* Section 1: Source of Wealth Statement */}
-          <Section title="1. Source of Wealth Statement" icon={<Briefcase className="w-5 h-5" />} helpId="assessment.profile">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold">Client Reference / RM ID</label>
-                <Input 
-                  value={localMeta.clientReference} 
-                  onChange={(e) => handleMetaChange('clientReference', e.target.value)}
-                  className="rounded-md border-border bg-card"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold">Relationship Manager</label>
-                <Input 
-                  value={localMeta.relationshipManager} 
-                  onChange={(e) => handleMetaChange('relationshipManager', e.target.value)}
-                  className="rounded-md border-border bg-card"
-                />
-              </div>
-            </div>
-            <SourceOfWealthSection
-              data={localData}
-              clientName={assessment.clientName}
-              onFieldChange={handleDataChange}
-              onApply={(values) =>
-                setLocalData((prev) => {
-                  const next = { ...prev, ...values };
-                  triggerSave(next, localMeta);
-                  return next;
-                })
-              }
-            />
-          </Section>
+          <div className="space-y-4 min-w-0">
+            {/* 3 · Meeting — the note that the statement is drafted from. */}
+            <StepSection
+              id="step-meeting"
+              index={2}
+              title="Meeting"
+              summary={hasFileNote ? "Meeting note captured" : "Add the meeting note the statement draws from"}
+              status={statusOf("meeting")}
+              active={activeKey === "meeting"}
+              onActivate={() => selectStep("meeting")}
+            >
+              <FileNotePanel
+                value={localData.fileNote}
+                onChange={(v) => handleDataChange("fileNote", v)}
+                contactName={assessment.clientName}
+                defaultMeetingType="Client review"
+              />
+            </StepSection>
 
-          {/* Section 2: Wealth Categories */}
-          <Section title="2. Wealth Categories" icon={<FileText className="w-5 h-5" />} helpId="assessment.wealthCategories">
-            <p className="text-sm text-muted-foreground mb-6">
-              Select all categories that apply to this client's overall wealth footprint. Expand each to complete the relevant questions and document checks.
-            </p>
-            
-            <div className="flex flex-col gap-4">
-              {wealthCategories.map((cat) => {
-                const applicableCats = (localData["applicableCategories"] as string[]) || [];
-                const isApplicable = applicableCats.includes(cat.id);
-                
-                return (
-                  <div key={cat.id} className={`border transition-all duration-300 ${isApplicable ? 'border-primary shadow-sm bg-card' : 'border-border bg-background'}`}>
-                    <div 
-                      className="p-4 flex items-center justify-between cursor-pointer transition-colors hover:bg-secondary/20"
-                      onClick={() => {
-                        const next = isApplicable 
-                          ? applicableCats.filter(id => id !== cat.id)
-                          : [...applicableCats, cat.id];
-                        handleDataChange("applicableCategories", next);
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Checkbox 
-                          checked={isApplicable} 
-                          onCheckedChange={(checked) => {
-                            const next = checked 
-                              ? [...applicableCats, cat.id]
-                              : applicableCats.filter(id => id !== cat.id);
-                            handleDataChange("applicableCategories", next);
-                          }}
-                          className="rounded-sm border-border data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <div>
-                          <h3 className="font-serif font-medium">{cat.name}</h3>
-                          {!isApplicable && <p className="text-xs text-muted-foreground line-clamp-1">{cat.intro}</p>}
-                        </div>
-                      </div>
-                      {isApplicable ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                    </div>
-                    
-                    {isApplicable && (
-                      <div className="p-6 border-t border-border border-primary/20 bg-card flex flex-col gap-8 animate-in slide-in-from-top-2 duration-300 print:block">
-                        <p className="text-sm text-muted-foreground">{cat.intro}</p>
-                        
-                        <div className="space-y-6">
-                          <h4 className="font-serif text-lg border-b border-border pb-2">Questions</h4>
-                          {cat.questions.map((q) => (
-                            <div key={q.id} className="space-y-2">
-                              <label className="text-sm font-medium text-foreground/90">{q.label}</label>
-                              <Textarea 
-                                value={localData[q.id] || ""}
-                                onChange={(e) => handleDataChange(q.id, e.target.value)}
-                                className="min-h-[80px] rounded-md border-border bg-background focus-visible:ring-primary"
-                              />
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="space-y-4">
-                          <h4 className="font-serif text-lg border-b border-border pb-2 mt-4">Documentary Evidence</h4>
-                          <div className="grid gap-3">
-                            {cat.documents.map((d) => (
-                              <div key={d.id} className="flex flex-col md:flex-row md:items-start justify-between gap-4 p-4 border border-border bg-background">
-                                <span className="text-sm flex-1">{d.label}</span>
-                                <Select 
-                                  value={localData[d.id] || ""} 
-                                  onValueChange={(v) => handleDataChange(d.id, v)}
-                                >
-                                  <SelectTrigger className="w-[200px] h-8 rounded-md border-border">
-                                    <SelectValue placeholder="Select state..." />
-                                  </SelectTrigger>
-                                  <SelectContent className="rounded-md">
-                                    {DOC_STATES.map(state => (
-                                      <SelectItem key={state.value} value={state.value}>{state.label}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </Section>
-
-          {/* Section 3: Source of Funds */}
-          <Section title="3. Source of Funds (Specific Transaction)" icon={<FileText className="w-5 h-5" />} helpId="assessment.sourceOfFunds">
-            <div className="space-y-8">
-              {sourceOfFundsQuestions.map((q) => (
-                <div key={q.id} className="space-y-2">
-                  <label className="text-sm font-semibold text-foreground/90">{q.label}</label>
-                  <Textarea 
-                    value={localData[q.id] || ""}
-                    onChange={(e) => handleDataChange(q.id, e.target.value)}
-                    className="min-h-[80px] rounded-md border-border bg-card"
+            {/* 4 · Source of Wealth — the statement that answers the onboarding
+                questions. This is the page's job; everything else the bank's
+                Connect tool already covers. */}
+            <StepSection
+              id="step-sow"
+              index={3}
+              title="Source of Wealth"
+              summary={isComplete ? "Marked complete" : "Draft and confirm the statement"}
+              status={statusOf("sow")}
+              active={activeKey === "sow"}
+              onActivate={() => selectStep("sow")}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold">Client reference</label>
+                  <Input
+                    value={localMeta.clientReference}
+                    onChange={(e) => handleMetaChange('clientReference', e.target.value)}
+                    className="rounded-md border-border bg-card"
                   />
                 </div>
-              ))}
-              
-              <div className="mt-8 space-y-4">
-                <h4 className="font-serif text-lg border-b border-border pb-2">Required Documents</h4>
-                <div className="grid gap-3">
-                  {sourceOfFundsDocuments.map((d) => (
-                    <div key={d.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 border border-border bg-card">
-                      <span className="text-sm flex-1">{d.label}</span>
-                      <Select 
-                        value={localData[d.id] || ""} 
-                        onValueChange={(v) => handleDataChange(d.id, v)}
-                      >
-                        <SelectTrigger className="w-[200px] h-8 rounded-md border-border bg-background">
-                          <SelectValue placeholder="Select state..." />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-md">
-                          {DOC_STATES.map(state => (
-                            <SelectItem key={state.value} value={state.value}>{state.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold">Banker</label>
+                  <Input
+                    value={localMeta.relationshipManager}
+                    onChange={(e) => handleMetaChange('relationshipManager', e.target.value)}
+                    className="rounded-md border-border bg-card"
+                  />
                 </div>
               </div>
-            </div>
-          </Section>
 
-          {/* Section 4: Plausibility */}
-          <Section title="4. Plausibility & Corroboration" icon={<CheckSquare className="w-5 h-5" />} helpId="assessment.plausibility">
-            <p className="text-sm text-muted-foreground mb-6">
-              Review and confirm the plausibility of the overall picture presented.
-            </p>
-            <div className="grid gap-4">
-              {plausibilityChecks.map((c) => (
-                <label key={c.id} className="flex items-start gap-4 p-4 border border-border bg-card hover:bg-secondary/10 hover:border-primary/40 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md">
-                  <Checkbox 
-                    checked={!!localData[c.id]}
-                    onCheckedChange={(checked) => handleDataChange(c.id, checked)}
-                    className="mt-0.5 rounded-sm data-[state=checked]:bg-emerald-500 data-[state=checked]:text-white border-border"
-                  />
-                  <span className="text-sm font-medium">{c.label}</span>
-                </label>
-              ))}
-            </div>
-          </Section>
+              <SourceOfWealthSection
+                data={localData}
+                clientName={assessment.clientName}
+                onFieldChange={handleDataChange}
+                onApply={(values) =>
+                  setLocalData((prev) => {
+                    const next = { ...prev, ...values };
+                    triggerSave(next, localMeta);
+                    return next;
+                  })
+                }
+              />
 
-          {/* Section 5: Red Flags */}
-          <Section title="5. Red Flags & Escalation" icon={<ShieldAlert className="w-5 h-5 text-amber-500" />} className="border-t-4 border-amber-500/50" helpId="assessment.redFlags">
-            <p className="text-sm text-muted-foreground mb-6">
-              Identify any risk factors present during this assessment. Selecting any of these may require escalation.
-            </p>
-            <div className="grid gap-4">
-              {redFlags.map((f) => (
-                <label key={f.id} className="flex items-start gap-4 p-4 border border-border bg-card hover:bg-amber-500/5 hover:border-amber-500/40 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md">
-                  <Checkbox 
-                    checked={!!localData[f.id]}
-                    onCheckedChange={(checked) => handleDataChange(f.id, checked)}
-                    className="mt-0.5 rounded-sm data-[state=checked]:bg-amber-500 data-[state=checked]:text-white border-border"
-                  />
-                  <span className="text-sm font-medium">{f.label}</span>
-                </label>
-              ))}
-              
-              <div className="mt-4 space-y-2">
-                <label className="text-sm font-semibold">Details of any red flags identified and mitigations applied:</label>
-                <Textarea 
-                  value={localData["flags.mitigation"] || ""}
-                  onChange={(e) => handleDataChange("flags.mitigation", e.target.value)}
-                  className="min-h-[100px] rounded-md border-border bg-card"
-                  placeholder="Provide context..."
-                />
-              </div>
-            </div>
-          </Section>
-
-          {/* Section 6: Sign-off */}
-          <Section title="6. RM Assessment & Sign-off" icon={<FileText className="w-5 h-5" />} helpId="assessment.signOff">
-            <div className="space-y-8">
-              {signOffFields.map((field) => (
-                <div key={field.id} className="space-y-2">
-                  <label className="text-sm font-semibold text-foreground/90">{field.label}</label>
-                  {field.type === 'textarea' ? (
-                    <Textarea 
-                      value={localData[field.id] || ""}
-                      onChange={(e) => handleDataChange(field.id, e.target.value)}
-                      className="min-h-[100px] rounded-md border-border bg-card"
-                    />
-                  ) : field.type === 'select' ? (
-                    <Select value={localData[field.id] || ""} onValueChange={(v) => handleDataChange(field.id, v)}>
-                      <SelectTrigger className="rounded-md border-border bg-card">
-                        <SelectValue placeholder="Select conclusion..." />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-md">
-                        {field.options?.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input 
-                      value={localData[field.id] || ""}
-                      onChange={(e) => handleDataChange(field.id, e.target.value)}
-                      className="rounded-md border-border bg-card"
-                    />
-                  )}
-                </div>
-              ))}
-              
-              <div className="pt-6 border-t border-border flex justify-end print:hidden">
-                <Button 
+              <div className="pt-8 mt-8 border-t border-border flex justify-end print:hidden">
+                <Button
                   onClick={() => handleMetaChange("status", "completed")}
                   className="rounded-md bg-primary text-primary-foreground"
-                  disabled={localMeta.status === "completed"}
+                  disabled={isComplete}
                 >
                   <CheckCircle2 className="w-4 h-4 mr-2" />
                   Mark Assessment as Completed
                 </Button>
               </div>
-            </div>
-          </Section>
+            </StepSection>
 
+            {/* Read-only archive of anything captured under the old, retired
+                sections (categories / source of funds / plausibility / red flags
+                / sign-off). Only shows for legacy assessments — nothing is lost. */}
+            <LegacyDetails data={localData} />
+          </div>
         </div>
       </div>
     </Layout>
   );
 }
 
-// Sub-component for consistent section styling
-function Section({ title, icon, children, className = "", helpId }: { title: string, icon: React.ReactNode, children: React.ReactNode, className?: string, helpId?: string }) {
+const DOC_STATE_LABEL: Record<string, string> = {
+  pending: "Pending",
+  provided: "Provided & Verified",
+  waived: "Waived",
+  na: "Not Applicable",
+};
+
+/** Collect any values stored under the retired due-diligence sections. */
+function legacyEntries(data: Record<string, any>): { group: string; label: string; value: string }[] {
+  const out: { group: string; label: string; value: string }[] = [];
+  const push = (group: string, label: string, raw: unknown) => {
+    if (raw === undefined || raw === null || raw === "" || raw === false) return;
+    const value =
+      typeof raw === "boolean" ? "Yes" : DOC_STATE_LABEL[String(raw)] ?? String(raw);
+    out.push({ group, label, value });
+  };
+  const applicable = (data.applicableCategories as string[]) || [];
+  const applicableNames = wealthCategories.filter((c) => applicable.includes(c.id)).map((c) => c.name);
+  if (applicableNames.length) push("Wealth Categories", "Categories marked applicable", applicableNames.join(", "));
+  // Only surface answers for categories the banker actually kept applicable —
+  // deselecting a category in the old editor left its nested answers behind, and
+  // showing that stale data would misrepresent the final assessment.
+  wealthCategories.forEach((cat) => {
+    if (!applicable.includes(cat.id)) return;
+    cat.questions.forEach((q) => push(cat.name, q.label, data[q.id]));
+    cat.documents.forEach((d) => push(cat.name, d.label, data[d.id]));
+  });
+  sourceOfFundsQuestions.forEach((q) => push("Source of Funds", q.label, data[q.id]));
+  sourceOfFundsDocuments.forEach((d) => push("Source of Funds", d.label, data[d.id]));
+  plausibilityChecks.forEach((c) => push("Plausibility & Corroboration", c.label, data[c.id]));
+  redFlags.forEach((f) => push("Red Flags & Escalation", f.label, data[f.id]));
+  push("Red Flags & Escalation", "Details / mitigation", data["flags.mitigation"]);
+  signOffFields.forEach((f) => push("Assessment & Sign-off", f.label, data[f.id]));
+  return out;
+}
+
+function LegacyDetails({ data }: { data: Record<string, any> }) {
+  const [open, setOpen] = useState(false);
+  const entries = legacyEntries(data);
+  if (entries.length === 0) return null;
+
+  const groups = entries.reduce<Record<string, { label: string; value: string }[]>>((acc, e) => {
+    (acc[e.group] ||= []).push({ label: e.label, value: e.value });
+    return acc;
+  }, {});
+
   return (
-    <section className={`bg-card/50 border border-border shadow-sm p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700 ${className}`}>
-      <div className="flex items-center gap-3 mb-8 border-b border-border pb-4">
-        <div className="text-primary">{icon}</div>
-        <h2 className="text-2xl font-serif text-foreground">{title}</h2>
-        {helpId && <SectionInfo id={helpId} className="ml-1" />}
-      </div>
-      <div>
-        {children}
+    <section className="border border-border bg-secondary/20 scroll-mt-24 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full flex items-center gap-3 p-5 text-left hover:bg-secondary/40 transition-colors print:hover:bg-transparent"
+      >
+        <div className="flex-1 min-w-0">
+          <h2 className="text-base font-serif leading-tight text-muted-foreground">Archived due-diligence (read-only)</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {entries.length} entr{entries.length === 1 ? "y" : "ies"} captured under the retired sections — kept for the record; the bank's Connect tool now owns this.
+          </p>
+        </div>
+      </button>
+      <div className={open ? "block" : "hidden print:block"}>
+        <div className="px-5 pb-6 pt-1 border-t border-border space-y-6 min-w-0">
+          {Object.entries(groups).map(([group, rows]) => (
+            <div key={group} className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{group}</h3>
+              <dl className="space-y-2">
+                {rows.map((r, i) => (
+                  <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 border-b border-border/60 pb-2">
+                    <dt className="text-sm text-foreground/90">{r.label}</dt>
+                    <dd className="text-sm text-muted-foreground md:text-right whitespace-pre-wrap">{r.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

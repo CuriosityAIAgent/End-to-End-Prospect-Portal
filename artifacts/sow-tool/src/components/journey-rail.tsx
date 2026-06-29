@@ -14,6 +14,9 @@ export interface JourneyStep {
   key: string;
   label: string;
   status: StepStatus;
+  /** Shown for context but not selectable (e.g. pre-convert steps on the
+   *  assessment page, whose content lives on the prospect record). */
+  disabled?: boolean;
 }
 
 /** Numbered dot / tick shared by the rail and the section headers. */
@@ -61,13 +64,16 @@ export function JourneyRail({
             <li key={s.key} className="shrink-0 lg:shrink">
               <button
                 type="button"
+                disabled={s.disabled}
                 onClick={() => onSelect(s.key)}
                 aria-current={active ? "step" : undefined}
                 className={[
                   "w-full flex items-center gap-2.5 text-left text-sm rounded-md px-2.5 py-2 border transition-colors",
-                  active
-                    ? "border-primary/40 bg-primary/5 text-foreground font-medium"
-                    : "border-transparent hover:bg-secondary text-muted-foreground",
+                  s.disabled
+                    ? "border-transparent text-muted-foreground/70 cursor-default"
+                    : active
+                      ? "border-primary/40 bg-primary/5 text-foreground font-medium"
+                      : "border-transparent hover:bg-secondary text-muted-foreground",
                 ].join(" ")}
               >
                 <StepDot index={i} status={s.status} active={active} />

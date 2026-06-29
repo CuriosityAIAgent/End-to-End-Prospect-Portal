@@ -94,7 +94,7 @@ export const sowStatementFields: SowStatementField[] = [
 export const sowAdditionalField = {
   id: "sow.additional",
   label: "Additional information",
-  hint: "Anything not captured above — added manually by the relationship manager.",
+  hint: "Anything not captured above — added manually by the banker.",
 } as const;
 
 /** The drafted-section ids (everything the AI fills), in order. */

@@ -358,7 +358,7 @@ export function SourceOfWealthSection({
         <Textarea
           value={(data[sowAdditionalField.id] as string | undefined) ?? ""}
           onChange={(e) => onFieldChange(sowAdditionalField.id, e.target.value)}
-          placeholder="Add any further context the relationship manager wishes to record…"
+          placeholder="Add any further context the banker wishes to record…"
           className="min-h-[100px] rounded-md border-border bg-card focus-visible:ring-primary print:hidden"
         />
         <div className="hidden print:block text-sm whitespace-pre-wrap leading-relaxed">

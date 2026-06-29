@@ -19,7 +19,7 @@ export const helpCatalog: Record<string, HelpEntry> = {
   "assessment.profile": {
     title: "Client Profile",
     body: [
-      "Capture who the client is and how the relationship is held: reference, relationship manager, occupation, nationality and residence, and the overall wealth picture.",
+      "Capture who the client is and how the relationship is held: reference, banker, occupation, nationality and residence, and the overall wealth picture.",
       "This is the frame for everything that follows — the source of wealth narrative only makes sense against a clear profile. You can populate much of this directly from a meeting file note.",
     ],
   },
@@ -52,9 +52,9 @@ export const helpCatalog: Record<string, HelpEntry> = {
     ],
   },
   "assessment.signOff": {
-    title: "RM Assessment & Sign-off",
+    title: "Banker Assessment & Sign-off",
     body: [
-      "Summarise your overall judgement, set the risk rating, and sign off. This is the relationship manager's accountable conclusion on the file.",
+      "Summarise your overall judgement, set the risk rating, and sign off. This is the banker's accountable conclusion on the file.",
       "Sign-off should follow, not precede, a complete questionnaire and a resolved document checklist.",
     ],
   },
@@ -85,7 +85,7 @@ export const helpCatalog: Record<string, HelpEntry> = {
     title: "Cold Call Script",
     body: [
       "The only goal of this call is to secure a meeting or virtual call — never to sell. The script assumes you sent a short follow-up email 1–2 days earlier, and is organised around the four ways a call can land: through to the prospect, an assistant or gatekeeper, a company switchboard, or voicemail.",
-      "The words personalise to the prospect and RM automatically. Log the outcome below so the journey stays current.",
+      "The words personalise to the prospect and banker automatically. Log the outcome below so the journey stays current.",
     ],
   },
   "prospect.briefing": {

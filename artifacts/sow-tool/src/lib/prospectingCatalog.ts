@@ -144,8 +144,8 @@ export const coldCallEmailReminder =
 export type ColdCallLine = {
   // A short sub-label for the line (e.g. "The ask").
   subLabel: string;
-  // Suggested words. Bracketed tokens [Name] and [RM] are substituted live in
-  // the UI with the prospect's name and the RM.
+  // Suggested words. Bracketed tokens [Name] and [Banker] are substituted live in
+  // the UI with the prospect's name and the banker.
   script: string;
   guidance: string;
 };
@@ -164,7 +164,7 @@ export const coldCallScenarios: ColdCallScenario[] = [
       {
         subLabel: "Open (reference the email)",
         script:
-          "Good morning [Name], this is [RM] from the Private Bank. I sent you a short note earlier this week and promised I'd follow up with a quick call — is now a reasonable moment for two minutes?",
+          "Good morning [Name], this is [Banker] from the Private Bank. I sent you a short note earlier this week and promised I'd follow up with a quick call — is now a reasonable moment for two minutes?",
         guidance: "Pause and let them answer before going on.",
       },
       {
@@ -194,7 +194,7 @@ export const coldCallScenarios: ColdCallScenario[] = [
       {
         subLabel: "Open",
         script:
-          "Good morning, this is [RM] from the Private Bank. I sent [Name] a short email earlier this week and promised I'd follow up with a call — may I speak with them, or is there a better time you'd suggest I try?",
+          "Good morning, this is [Banker] from the Private Bank. I sent [Name] a short email earlier this week and promised I'd follow up with a call — may I speak with them, or is there a better time you'd suggest I try?",
         guidance: "Treat the assistant as an ally, not an obstacle.",
       },
       {
@@ -218,7 +218,7 @@ export const coldCallScenarios: ColdCallScenario[] = [
       {
         subLabel: "Open",
         script:
-          "Good morning, could you put me through to [Name]'s office, please? This is [RM] from the Private Bank — I'm following up on an email I sent them earlier this week.",
+          "Good morning, could you put me through to [Name]'s office, please? This is [Banker] from the Private Bank — I'm following up on an email I sent them earlier this week.",
         guidance: "Calm certainty; referencing the email signals you're expected.",
       },
       {
@@ -242,7 +242,7 @@ export const coldCallScenarios: ColdCallScenario[] = [
       {
         subLabel: "Message",
         script:
-          "Hello [Name], this is [RM] from the Private Bank — I sent you a short email earlier this week and promised I'd follow up with a quick call. Nothing urgent and nothing to sell; I'd simply like to arrange a brief introduction at a time that suits you. I'll try you again on [day], or feel free to reach me directly on [number]. Thank you, and I look forward to speaking.",
+          "Hello [Name], this is [Banker] from the Private Bank — I sent you a short email earlier this week and promised I'd follow up with a quick call. Nothing urgent and nothing to sell; I'd simply like to arrange a brief introduction at a time that suits you. I'll try you again on [day], or feel free to reach me directly on [number]. Thank you, and I look forward to speaking.",
         guidance: "Never pitch into a voicemail; keep it short and warm.",
       },
       {
