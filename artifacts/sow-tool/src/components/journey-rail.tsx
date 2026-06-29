@@ -53,11 +53,11 @@ export function JourneyRail({
 }) {
   return (
     <nav aria-label="Prospect journey" className="lg:sticky lg:top-24 print:hidden">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-4">
         <Compass className="w-4 h-4 text-primary" />
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">{title}</h2>
       </div>
-      <ol className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
+      <ol className="flex lg:flex-col gap-1.5 overflow-x-auto lg:overflow-visible">
         {steps.map((s, i) => {
           const active = s.key === activeKey;
           return (
@@ -68,7 +68,7 @@ export function JourneyRail({
                 onClick={() => onSelect(s.key)}
                 aria-current={active ? "step" : undefined}
                 className={[
-                  "w-full flex items-center gap-2.5 text-left text-sm rounded-md px-2.5 py-2 border transition-colors",
+                  "w-full flex items-center gap-2.5 text-left text-sm rounded-md px-3 py-2.5 border transition-colors",
                   s.disabled
                     ? "border-transparent text-muted-foreground/70 cursor-default"
                     : active

@@ -200,6 +200,11 @@ export default function Workspace() {
   const selectStep = (key: string) => {
     // Brief & Approach are context-only on this page (disabled in the rail).
     if (key !== "meeting" && key !== "sow") return;
+    // Toggle: clicking the open step collapses it back to nothing (no scroll).
+    if (key === activeKey) {
+      setActiveStep("__none__");
+      return;
+    }
     setActiveStep(key);
     requestAnimationFrame(() =>
       document.getElementById(`step-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" }),
@@ -208,7 +213,7 @@ export default function Workspace() {
 
   return (
     <Layout>
-      <div className="max-w-5xl mx-auto flex flex-col gap-8 pb-24 print:pb-0 min-w-0">
+      <div className="max-w-6xl mx-auto flex flex-col gap-8 pb-24 print:pb-0 min-w-0">
 
         {/* Workspace Header - Not printed */}
         <div className="flex flex-col gap-4 print:hidden">
@@ -321,7 +326,7 @@ export default function Workspace() {
         {/* Journey — same rail + accordion as the prospect page, so the flow is
             continuous across convert. Brief & Approach are done context; the
             live work here is the meeting note and the Source of Wealth statement. */}
-        <div className="lg:grid lg:grid-cols-[190px_minmax(0,1fr)] lg:gap-8 min-w-0">
+        <div className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-12 min-w-0">
           <JourneyRail steps={steps} activeKey={activeKey} onSelect={selectStep} />
 
           <div className="space-y-4 min-w-0">

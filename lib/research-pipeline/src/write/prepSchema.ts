@@ -45,8 +45,8 @@ export function prepResponseSpec(): string {
     '    "call": [ exactly 3 variants { "id": "call-1", "label": string, "rationale": string, "newsHook": string|null, "opener": string, "flow": string[] (3-5 beats) } ] — same three angles; the `opener` names who you are (JPM Private Bank, with a remit that fits this prospect) in one breath and the `flow` drives straight to asking for the 30-minute meeting. Keep every beat one short line;',
     '    "anticipatedObjections": [{ "objection": string, "response": string }] (2-3) — short, meeting-securing responses.',
     "  },",
-    '  "sourceOfWealth": { "likelyCategories": string[] (category ids from the reference that most likely apply), "questions": [{ "question": string, "why": string, "suggestedAnswer": string, "expectedEvidence": string[] }] (5-6) }.',
-    "For each SoW question, `suggestedAnswer` is the anticipated answer inferred from the research/profile (the RM validates it with the client) and `expectedEvidence` lists the corroborating documents.",
+    '  "sourceOfWealth": { "likelyCategories": string[] (category ids from the reference that most likely apply), "questions": [{ "question": string, "why": string, "suggestedAnswer": string, "expectedEvidence": string[] }] (AT MOST 5 — only the five most important; do not pad) }.',
+    "For each SoW question, `suggestedAnswer` is the anticipated answer inferred from the research/profile (the banker validates it with the client) and `expectedEvidence` lists the corroborating documents.",
   ].join("\n");
 }
 
@@ -183,6 +183,7 @@ export function parsePrepResponse(text: string): ParsedPrep | null {
           expectedEvidence: strArr(q.expectedEvidence),
         }))
         .filter((q) => q.question.trim().length > 0)
+        .slice(0, 5) // keep the five most important — no SoW question wall
     : [];
 
   // Derive the legacy flat fields from the structured forms — but if the model

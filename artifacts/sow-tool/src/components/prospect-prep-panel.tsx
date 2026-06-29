@@ -771,7 +771,7 @@ export function ProspectPrepPanel({
                 </div>
               )}
               <ol className="space-y-4">
-                {shown.sourceOfWealth.questions.map((q, i) => (
+                {shown.sourceOfWealth.questions.slice(0, 5).map((q, i) => (
                   <li key={i} className="border rounded-md p-5" style={{ borderColor: BORDER, background: PAPER }}>
                     {/* The question */}
                     <div className="flex gap-3">
