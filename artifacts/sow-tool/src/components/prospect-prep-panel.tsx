@@ -346,7 +346,7 @@ function CopyButton({ text, onCopied }: { text: string; onCopied?: () => void })
   );
 }
 
-function ApproachSection({
+export function ApproachSection({
   approach,
   fallback,
   onCopyVariant,
@@ -497,6 +497,7 @@ export function ProspectPrepPanel({
   knownInfo,
   onFieldChange,
   onApproachCopy,
+  view = "full",
 }: {
   prospectId: number;
   prospectName: string;
@@ -507,6 +508,8 @@ export function ProspectPrepPanel({
   onFieldChange?: (key: string, value: string) => void;
   /** Capture which outreach variant the banker copies (lightweight learning). */
   onApproachCopy?: (channel: "email" | "call", variantId: string, label: string) => void;
+  /** "brief" hides the approach block when it is rendered in its own step. */
+  view?: "full" | "brief";
 }) {
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -750,8 +753,11 @@ export function ProspectPrepPanel({
             );
           })()}
 
-          {/* The approach — Email/Call variants (legacy cold-call fallback) */}
-          <ApproachSection approach={shown.approach} fallback={shown.coldCall} onCopyVariant={onApproachCopy} />
+          {/* The approach — Email/Call variants (legacy cold-call fallback).
+              Hidden here when it has its own step (view="brief"). */}
+          {view === "full" && (
+            <ApproachSection approach={shown.approach} fallback={shown.coldCall} onCopyVariant={onApproachCopy} />
+          )}
 
           {/* Source of Wealth questions */}
           {shown.sourceOfWealth.questions.length > 0 && (
