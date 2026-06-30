@@ -5,12 +5,8 @@ import {
   useGetProspect,
   useUpdateProspect,
   useDeleteProspect,
-  useGenerateProspectBriefing,
-  useConvertProspect,
   getGetProspectQueryKey,
   getListProspectsQueryKey,
-  getListAssessmentsQueryKey,
-  getGetOverviewQueryKey,
 } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { FileNotePanel } from "@/components/file-note-panel";
@@ -18,18 +14,18 @@ import { ProspectPrepPanel, ApproachSection } from "@/components/prospect-prep-p
 import { JourneyRail, StepSection, type JourneyStep, type StepStatus } from "@/components/journey-rail";
 import { ReferralPointers } from "@/components/referral-pointers";
 import { MeetingFactFind } from "@/components/meeting-fact-find";
+import { SourceOfWealthSection } from "@/components/source-of-wealth-section";
+import { CorroborationDocuments, type CorroborationData } from "@/components/corroboration-documents";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { prospectingSections, prospectStatuses, prospectStatusLabel, coldCallScenarios, coldCallCapture, coldCallObjective, coldCallEmailReminder, coldCallDeliveryNotes } from "@/lib/prospectingCatalog";
+import { sowStatementFields } from "@/lib/sowCatalog";
 import {
-  Printer, Trash2, ChevronLeft, Save, AlertCircle, CheckCircle2, Sparkles,
-  Compass, Users, ListChecks, ExternalLink, ArrowRightCircle, Loader2, Lightbulb, Route as RouteIcon, Phone,
+  Printer, Trash2, ChevronLeft, Save, AlertCircle, CheckCircle2,
 } from "lucide-react";
 
 export default function Prospect() {
@@ -44,13 +40,15 @@ export default function Prospect() {
 
   const updateProspect = useUpdateProspect();
   const deleteProspect = useDeleteProspect();
-  const convertProspect = useConvertProspect();
 
   const [localData, setLocalData] = useState<Record<string, any>>({});
   const [localMeta, setLocalMeta] = useState({ status: "identified", segment: "", relationshipManager: "" });
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
-  // Which journey step is expanded. null = follow the computed current step.
-  const [activeStep, setActiveStep] = useState<string | null>(null);
+  // The briefing pack reads as one continuous document — every step is open by
+  // default so the banker can scroll up and down and review the whole thing at
+  // any point. A step can still be collapsed individually from its header.
+  // `null` means "not yet customised" → treated as all-open below.
+  const [openSteps, setOpenSteps] = useState<Set<string> | null>(null);
 
   const initializedForId = useRef<number | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -126,23 +124,6 @@ export default function Prospect() {
     scheduleSave();
   };
 
-  const handleConvert = () => {
-    savesBlocked.current = true;
-    cancelPendingSave();
-    convertProspect.mutate({ id }, {
-      onSuccess: (assessment) => {
-        queryClient.invalidateQueries({ queryKey: getGetProspectQueryKey(id) });
-        queryClient.invalidateQueries({ queryKey: getListProspectsQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getListAssessmentsQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetOverviewQueryKey() });
-        setLocation(`/assessment/${assessment.id}`);
-      },
-      onError: () => {
-        savesBlocked.current = false;
-      },
-    });
-  };
-
   const handleDelete = () => {
     savesBlocked.current = true;
     cancelPendingSave();
@@ -181,42 +162,59 @@ export default function Prospect() {
   }
 
   const briefing = prospect.briefing;
-  const isConverted = prospect.status === "converted" && !!prospect.convertedAssessmentId;
+  // An assessment may have been created by the legacy convert flow before the
+  // Source of Wealth moved inline here; if so we surface a link to it for
+  // continuity, but the live SoW work now happens on this page.
+  const legacyAssessmentId =
+    prospect.status === "converted" ? prospect.convertedAssessmentId ?? null : null;
   const prep = localData.prep as import("@workspace/research-pipeline/types").PrepPack | undefined;
 
-  // ── Journey steps — one backbone, same on the post-convert page ──
+  // ── Journey steps — one backbone, same on the assessment page ──
   const hasPrep = !!prep;
   const approachUsed = Array.isArray(localData.approachUsage) && (localData.approachUsage as unknown[]).length > 0;
   const hasFileNote = !!(localData.fileNote as { note?: string } | undefined)?.note?.trim();
+  const hasSowStatement = sowStatementFields.some(
+    (f) => ((localData[f.id] as string | undefined) ?? "").trim().length > 0,
+  );
 
   const stepDefs = [
     { key: "brief", label: "Brief & qualify", done: hasPrep },
     { key: "approach", label: "Approach", done: approachUsed },
     { key: "meeting", label: "Meeting", done: hasFileNote },
-    { key: "sow", label: "Source of Wealth", done: isConverted },
+    { key: "sow", label: "Source of Wealth", done: hasSowStatement },
   ];
   const currentIdx = stepDefs.findIndex((s) => !s.done);
   const currentKey = stepDefs[currentIdx === -1 ? stepDefs.length - 1 : currentIdx].key;
   const currentStageLabel = stepDefs.find((s) => s.key === currentKey)?.label ?? "";
-  const activeKey = activeStep ?? currentKey;
   const isDormant = localMeta.status === "dormant";
+
+  // Every step open by default; the rail highlights the next action.
+  const open = openSteps ?? new Set(stepDefs.map((s) => s.key));
+  const isOpen = (key: string) => open.has(key);
 
   const steps: JourneyStep[] = stepDefs.map((s) => ({
     key: s.key,
     label: s.label,
-    status: (s.done ? "done" : s.key === activeKey ? "current" : "todo") as StepStatus,
+    status: (s.done ? "done" : s.key === currentKey ? "current" : "todo") as StepStatus,
   }));
   const statusOf = (key: string) => steps.find((s) => s.key === key)!.status;
 
+  // Header chevron: collapse/expand a single step without affecting the others.
+  const toggleStep = (key: string) => {
+    const next = new Set(open);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setOpenSteps(next);
+  };
+
+  // Rail click: make sure the step is open, then scroll it into view so the
+  // banker can jump anywhere in the pack and keep scrolling up and down.
   const selectStep = (key: string) => {
-    // Toggle: clicking the open step collapses it back to nothing (no scroll).
-    if (key === activeKey) {
-      setActiveStep("__none__");
-      return;
+    if (!open.has(key)) {
+      const next = new Set(open);
+      next.add(key);
+      setOpenSteps(next);
     }
-    setActiveStep(key);
-    // Let the section expand, then bring it into view (matters on mobile, where
-    // the rail sits above the content).
     requestAnimationFrame(() =>
       document.getElementById(`step-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" }),
     );
@@ -340,12 +338,13 @@ export default function Prospect() {
           </div>
         </div>
 
-        {/* Journey — one persistent rail + a step accordion. The page reads
-            top-to-bottom with a clear sense of where the prospect sits and only
-            one step open at a time (others stay mounted, so a running prep or an
-            unsaved note survives). The same rail renders on the assessment page. */}
+        {/* Journey — one persistent rail + the steps below as a single
+            continuous briefing pack: every step is open by default so the
+            banker can review the whole thing and scroll up and down freely. The
+            rail jumps to any step and highlights the next action; each step can
+            still be collapsed from its own header. */}
         <div className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-12 min-w-0">
-          <JourneyRail steps={steps} activeKey={activeKey} onSelect={selectStep} />
+          <JourneyRail steps={steps} activeKey={currentKey} onSelect={selectStep} />
 
           <div className="space-y-4 min-w-0">
             {/* 1 · Brief & qualify — the researched read + the $25M qualifier. */}
@@ -355,8 +354,8 @@ export default function Prospect() {
               title="Brief & qualify"
               summary={hasPrep ? "Researched read + $25M qualifier" : "Generate the brief to qualify this prospect"}
               status={statusOf("brief")}
-              active={activeKey === "brief"}
-              onActivate={() => selectStep("brief")}
+              active={isOpen("brief")}
+              onActivate={() => toggleStep("brief")}
             >
               <ProspectPrepPanel
                 prospectId={id}
@@ -376,8 +375,8 @@ export default function Prospect() {
               title="Approach"
               summary={approachUsed ? "Outreach underway" : "Reach out — referral first, then cold"}
               status={statusOf("approach")}
-              active={activeKey === "approach"}
-              onActivate={() => selectStep("approach")}
+              active={isOpen("approach")}
+              onActivate={() => toggleStep("approach")}
             >
               {prep ? (
                 <div className="space-y-8">
@@ -417,8 +416,8 @@ export default function Prospect() {
               title="Meeting"
               summary={hasFileNote ? "Meeting note captured" : "Collect the fact-find, then write the note"}
               status={statusOf("meeting")}
-              active={activeKey === "meeting"}
-              onActivate={() => selectStep("meeting")}
+              active={isOpen("meeting")}
+              onActivate={() => toggleStep("meeting")}
             >
               <div className="space-y-8">
                 <MeetingFactFind prep={prep} />
@@ -431,67 +430,50 @@ export default function Prospect() {
               </div>
             </StepSection>
 
-            {/* 4 · Source of Wealth — convert to build the assessment. */}
+            {/* 4 · Source of Wealth — open inline. The statement draws on the
+                meeting note + briefing already captured above; no "convert"
+                step in between. */}
             <StepSection
               id="step-sow"
               index={3}
               title="Source of Wealth"
-              summary={isConverted ? "Assessment created" : "Convert to build the Source of Wealth"}
+              summary={hasSowStatement ? "Statement drafted" : "Draft the Source of Wealth statement"}
               status={statusOf("sow")}
-              active={activeKey === "sow"}
-              onActivate={() => selectStep("sow")}
+              active={isOpen("sow")}
+              onActivate={() => toggleStep("sow")}
             >
-              {isConverted ? (
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 border border-emerald-500/20 bg-emerald-500/5">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5" />
-                    <div>
-                      <p className="font-medium">This prospect has been converted to a client.</p>
-                      <p className="text-sm text-muted-foreground">A Source of Wealth assessment was created, carrying over the captured profile and briefing.</p>
-                    </div>
-                  </div>
+              {legacyAssessmentId != null && (
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 mb-6 border border-border bg-secondary/30 print:hidden">
+                  <p className="text-sm text-muted-foreground">
+                    An earlier assessment was created for this prospect under the previous flow.
+                  </p>
                   <Button
-                    onClick={() => setLocation(`/assessment/${prospect.convertedAssessmentId}`)}
-                    className="rounded-md bg-primary text-primary-foreground shrink-0"
+                    variant="outline"
+                    onClick={() => setLocation(`/assessment/${legacyAssessmentId}`)}
+                    className="rounded-md shrink-0"
                   >
-                    Open Assessment
+                    Open earlier assessment
                   </Button>
                 </div>
-              ) : (
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 border border-border bg-card">
-                  <div>
-                    <p className="font-medium">Ready to onboard this prospect?</p>
-                    <p className="text-sm text-muted-foreground">
-                      Create a Source of Wealth assessment. The prospect profile and AI briefing are carried over for continuity.
-                    </p>
-                  </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button className="rounded-md bg-primary text-primary-foreground shrink-0" disabled={convertProspect.isPending}>
-                        {convertProspect.isPending ? (
-                          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Converting...</>
-                        ) : (
-                          <><ArrowRightCircle className="w-4 h-4 mr-2" /> Convert to Client</>
-                        )}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="rounded-md bg-card border-border">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle className="font-serif">Convert {prospect.name} to a client?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This creates a new Source of Wealth assessment and marks the prospect as converted. You'll be taken to the new assessment.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel className="rounded-md">Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConvert} className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90">
-                          Convert
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
               )}
+
+              <SourceOfWealthSection
+                data={{ ...localData, prospectBriefing: localData.prospectBriefing ?? briefing }}
+                clientName={prospect.name}
+                onFieldChange={handleDataChange}
+                onApply={(values) => {
+                  latestData.current = { ...latestData.current, ...values };
+                  setLocalData(latestData.current);
+                  scheduleSave();
+                }}
+              />
+
+              <CorroborationDocuments
+                key={id}
+                clientName={prospect.name}
+                value={localData["sow.corroboration"] as CorroborationData | undefined}
+                onChange={(v) => handleDataChange("sow.corroboration", v)}
+              />
             </StepSection>
           </div>
         </div>

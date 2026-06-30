@@ -58,22 +58,26 @@ function reviewTypeLabel(value: AssessmentSummary["reviewType"]): string | null 
   return reviewTypeOptions.find((o) => o.value === value)?.label ?? null;
 }
 
-// Maps the 6-value prospect status enum onto the 5 journey stages. `converted`
-// resolves to onboard (the client is being onboarded); `dormant` keeps its
-// nominal position at identify but is flagged and de-prioritised separately.
+// Maps the prospect status enum onto the four journey stages. The Source of
+// Wealth is now drafted inline on the prospect page (no separate "convert"
+// step), so a legacy `converted` prospect simply sits at the SoW stage.
 // Derived from the SAME signals the prospect page's step-rail uses (prep →
-// approach → file note → convert), so the list and the detail page never
-// diverge. The current stage is the first step not yet done.
+// approach → file note → Source of Wealth). The current stage is the first
+// step not yet done.
+//
+// NOTE: `ProspectSummary` does not yet expose whether a SoW statement has been
+// drafted, so a prospect with a completed inline SoW still shows at the "sow"
+// stage. Surfacing SoW-done on the pipeline needs a `hasSow` field on the
+// prospects list endpoint — tracked as a follow-up.
 function prospectStage(p: ProspectSummary): JourneyStageId {
-  if (p.status === "converted") return "sow"; // ready to build the assessment
+  if (p.status === "converted") return "sow";
   if (!p.hasPrep) return "brief";
   if (!p.approachUsed) return "approach";
   if (!p.hasFileNote) return "meet";
   return "sow";
 }
 
-function prospectNextAction(stage: JourneyStageId, convertedNoAssessment: boolean): string {
-  if (convertedNoAssessment) return "Complete conversion";
+function prospectNextAction(stage: JourneyStageId): string {
   switch (stage) {
     case "brief":
       return "Generate brief";
@@ -82,13 +86,12 @@ function prospectNextAction(stage: JourneyStageId, convertedNoAssessment: boolea
     case "meet":
       return "Capture meeting note";
     case "sow":
-      return "Convert to Source of Wealth";
+      return "Draft Source of Wealth";
   }
 }
 
-function prospectMeta(stage: JourneyStageId, dormant: boolean, convertedNoAssessment: boolean): string {
+function prospectMeta(stage: JourneyStageId, dormant: boolean): string {
   if (dormant) return "Dormant — revisit later";
-  if (convertedNoAssessment) return "Conversion incomplete";
   switch (stage) {
     case "brief":
       return "Brief & qualify";
@@ -97,7 +100,7 @@ function prospectMeta(stage: JourneyStageId, dormant: boolean, convertedNoAssess
     case "meet":
       return "Ready to meet";
     case "sow":
-      return "Ready to convert";
+      return "Source of Wealth";
   }
 }
 
@@ -116,10 +119,10 @@ function assessmentNextAction(status: AssessmentSummary["status"]): string {
  * Merge prospects and onboarding assessments into one ordered journey worklist.
  *
  * Dedup rule: a prospect is dropped only when its `convertedAssessmentId` points
- * at an assessment that actually exists in the list — that relationship is then
- * represented by its assessment at the Onboard stage. A prospect manually marked
- * "converted" without a real assessment still surfaces (at Onboard, with a
- * "Complete conversion" action) so it can never silently vanish.
+ * at an assessment that actually exists in the list (a legacy convert) — that
+ * relationship is then represented by its assessment. A prospect marked
+ * "converted" without a real assessment still surfaces (at the Source of Wealth
+ * stage) so it can never silently vanish.
  */
 export function buildJourney(
   prospects: ProspectSummary[],
@@ -161,7 +164,6 @@ export function buildJourney(
     if (linkedAssessmentExists) continue;
 
     const dormant = p.status === "dormant";
-    const convertedNoAssessment = p.status === "converted";
     const stage = prospectStage(p);
     items.push({
       key: `prospect-${p.id}`,
@@ -172,9 +174,9 @@ export function buildJourney(
       relationshipManager: p.relationshipManager ?? null,
       stage,
       stageIndex: STAGE_INDEX[stage],
-      nextAction: prospectNextAction(stage, convertedNoAssessment),
-      meta: prospectMeta(stage, dormant, convertedNoAssessment),
-      urgency: convertedNoAssessment || stage === "meet" ? "high" : "normal",
+      nextAction: prospectNextAction(stage),
+      meta: prospectMeta(stage, dormant),
+      urgency: stage === "meet" ? "high" : "normal",
       dormant,
       enhanced: false,
       href: `/prospect/${p.id}`,
