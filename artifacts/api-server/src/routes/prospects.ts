@@ -597,12 +597,19 @@ async function runPrepJob(
       "Model the Source-of-Wealth questions and the documents you expect on how good private banks frame SoW, using this reference:",
       sowEvidencePromptBlock(),
       "",
-      prepResponseSpec(),
+      prepResponseSpec(!!prospect.relationshipManager?.trim()),
     ].join("\n");
 
+    // The banker name is user free-text, so it lives ONLY in the input (data),
+    // never the system prompt. Collapse to a single line so it stays one labelled
+    // field the model reads the sign-off / call-opener name from.
+    const bankerLine = prospect.relationshipManager?.trim()
+      ? `Sending advisor (banker): ${prospect.relationshipManager.replace(/\s+/g, " ").trim()}`
+      : "";
     const input = [
       `Prospect: ${prospect.name}`,
       prospect.segment ? `Segment: ${prospect.segment}` : "",
+      bankerLine,
       "",
       "Banker's notes / profile:",
       notes,

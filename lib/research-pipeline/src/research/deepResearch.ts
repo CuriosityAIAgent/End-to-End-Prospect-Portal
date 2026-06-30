@@ -70,13 +70,27 @@ const SITE_TARGETED: ResearchAngle[] = [
   "wealth_profile",
 ];
 
-function anglesQueries(subject: string, angle: ResearchAngle, siteTargeted: boolean): string[] {
-  const base = `${subject} ${ANGLE_KEYWORDS[angle]}`.trim();
+function anglesQueries(
+  name: string,
+  context: string,
+  angle: ResearchAngle,
+  siteTargeted: boolean,
+): string[] {
+  const ctx = context.trim() ? ` ${context.trim()}` : "";
+  // Watch-item / adverse search (litigation angle) must phrase-match the EXACT
+  // NAME — an unquoted name pulls in unrelated people (a probate/insolvency case
+  // for a different person who shares a name fragment). Quote ONLY the name (the
+  // disambiguating context stays unquoted, and is dropped here so it can't
+  // over-narrow the phrase); other angles stay unquoted to keep recall. Strip
+  // any embedded quotes from the name so the phrase query stays well-formed.
+  const cleanName = name.replace(/"/g, " ").replace(/\s+/g, " ").trim();
+  const subj = angle === "litigation" ? `"${cleanName}"` : `${cleanName}${ctx}`;
+  const base = `${subj} ${ANGLE_KEYWORDS[angle]}`.trim();
   const queries = [base];
   if (siteTargeted && SITE_TARGETED.includes(angle)) {
     const domains = domainsForAngle(angle).slice(0, 4);
     if (domains.length) {
-      queries.push(`${subject} ${domains.map((d) => `site:${d}`).join(" OR ")}`);
+      queries.push(`${subj} ${domains.map((d) => `site:${d}`).join(" OR ")}`);
     }
   }
   return queries;
@@ -113,12 +127,11 @@ export async function deepResearch(
   const perAngle = options.perAngle ?? (depth === "quick" ? 3 : 4);
   const extractLimit = options.extractLimit ?? (depth === "quick" ? 2 : 3);
   const siteTargeted = depth === "deep";
-  const ctx = options.context?.trim() ? ` ${options.context.trim()}` : "";
-  const subjectCtx = `${subject}${ctx}`;
+  const context = options.context ?? "";
 
   const queries: { angle: ResearchAngle; query: string }[] = [];
   for (const angle of angles) {
-    for (const query of anglesQueries(subjectCtx, angle, siteTargeted)) {
+    for (const query of anglesQueries(subject, context, angle, siteTargeted)) {
       queries.push({ angle, query });
     }
   }
