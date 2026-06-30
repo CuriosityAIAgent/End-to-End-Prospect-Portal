@@ -314,9 +314,15 @@ export function CorroborationDocuments({
 
       {/* Suggested supporting documents */}
       <div className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Supporting documents to collect
-        </p>
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Supporting documents to collect
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Suggested documents that would corroborate this client's wealth story. Use them as a
+            prompt for what to ask the client for — collect what fits, mark the rest not applicable.
+          </p>
+        </div>
         <div className="grid gap-2">
           {SUGGESTED_DOCS.map((d) => (
             <div
