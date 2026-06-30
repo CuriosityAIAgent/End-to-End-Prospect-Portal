@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  ShieldCheck, ExternalLink, Search, Loader2, Check, X, FileCheck2, AlertCircle, RefreshCw,
+  ShieldCheck, ExternalLink, Search, Loader2, Check, X, FileCheck2, AlertCircle, RefreshCw, Building2,
 } from "lucide-react";
 
 // ── Corroboration documents ─────────────────────────────────────────────────
@@ -36,9 +36,22 @@ interface FcaCandidate { irn: string; name: string; status: string }
 
 type DocState = "to_collect" | "requested" | "provided" | "na";
 
+// Company-website proof that the person works where the wealth story says they
+// do — the banker finds them on the firm's Team / About / People page and
+// attaches a screenshot of that profile to the file. (A future automated
+// capture — Playwright visiting the site and screenshotting the profile — can
+// populate `profileUrl` + an attached image behind a `configured` gate, the
+// same way the FCA extract is fetched automatically when keys are present.)
+interface EmployerProof {
+  company?: string;
+  profileUrl?: string;
+  state?: DocState;
+}
+
 export interface CorroborationData {
   regulated?: boolean;
   fca?: FcaExtract | null;
+  employer?: EmployerProof;
   docs?: Record<string, DocState>;
 }
 
@@ -59,6 +72,14 @@ const DOC_STATES: { value: DocState; label: string }[] = [
 
 const fcaSearchPageUrl = (name: string) =>
   `https://register.fca.org.uk/s/search?q=${encodeURIComponent(name)}&type=Individuals`;
+
+// A web search pre-aimed at the person's profile on their employer's own site
+// (team / about / people / leadership pages), where a screenshot proves the
+// employment that underpins the wealth story.
+const employerProfileSearchUrl = (name: string, company: string) =>
+  `https://www.google.com/search?q=${encodeURIComponent(
+    `"${name}"${company ? ` "${company}"` : ""} (team OR about OR people OR leadership OR "our team")`,
+  )}`;
 
 export function CorroborationDocuments({
   clientName,
@@ -137,6 +158,10 @@ export function CorroborationDocuments({
 
   const docState = (id: string): DocState => (data.docs?.[id] as DocState) ?? "to_collect";
   const setDocState = (id: string, s: DocState) => update({ docs: { ...(data.docs ?? {}), [id]: s } });
+
+  const employer = data.employer ?? {};
+  const setEmployer = (partial: Partial<EmployerProof>) =>
+    update({ employer: { ...employer, ...partial } });
 
   return (
     <div className="space-y-6 border-t border-border pt-8">
@@ -310,6 +335,80 @@ export function CorroborationDocuments({
             )}
           </div>
         )}
+      </div>
+
+      {/* Company / employer corroboration — proof the person works where the
+          wealth story says. Manual today (find them on the firm's site, attach a
+          screenshot); the automated capture can populate this later. */}
+      <div className="border border-border bg-secondary/20 p-4 space-y-4">
+        <div className="flex items-start gap-3">
+          <Building2 className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold">Company / employer proof</h3>
+            <p className="text-xs text-muted-foreground">
+              Find {clientName || "the client"} on their employer's own site — the Team, About or
+              People page — and attach a screenshot of that profile. It corroborates the employment
+              the wealth story rests on.
+            </p>
+          </div>
+        </div>
+
+        <div className="pl-8 space-y-3 print:hidden">
+          <div className="flex flex-wrap gap-2">
+            <Input
+              value={employer.company ?? ""}
+              onChange={(e) => setEmployer({ company: e.target.value })}
+              placeholder="Employer / company name"
+              className="h-9 max-w-xs rounded-md border-border bg-card"
+            />
+            <a
+              href={employerProfileSearchUrl(clientName, employer.company ?? "")}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-card text-sm hover:bg-secondary"
+            >
+              <Search className="w-4 h-4" /> Find on the company site
+            </a>
+          </div>
+          <Input
+            value={employer.profileUrl ?? ""}
+            onChange={(e) => setEmployer({ profileUrl: e.target.value })}
+            placeholder="Profile URL where they were found (paste here)"
+            className="h-9 rounded-md border-border bg-card"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">Screenshot of profile attached to file:</span>
+            <Select
+              value={employer.state ?? "to_collect"}
+              onValueChange={(v) => setEmployer({ state: v as DocState })}
+            >
+              <SelectTrigger className="w-[170px] h-8 rounded-md border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-md">
+                {DOC_STATES.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Print handoff line */}
+        <div className="hidden print:block pl-8 text-sm">
+          {employer.company ? (
+            <p>
+              <strong>Employer:</strong> {employer.company}
+              {employer.profileUrl ? ` — ${employer.profileUrl}` : ""}
+              {` (${DOC_STATES.find((s) => s.value === (employer.state ?? "to_collect"))?.label})`}
+            </p>
+          ) : (
+            <p className="text-muted-foreground">
+              Company employment proof — outstanding; attach a screenshot of the profile from the
+              employer's site to the file.
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Suggested supporting documents */}
