@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  ShieldCheck, ExternalLink, Search, Loader2, Check, X, FileCheck2, AlertCircle, RefreshCw,
+  ShieldCheck, ExternalLink, Search, Loader2, Check, X, FileCheck2, AlertCircle, RefreshCw, Building2,
 } from "lucide-react";
 
 // ── Corroboration documents ─────────────────────────────────────────────────
@@ -36,9 +36,28 @@ interface FcaCandidate { irn: string; name: string; status: string }
 
 type DocState = "to_collect" | "requested" | "provided" | "na";
 
+// Company-website proof that the person works where the wealth story says they
+// do — found on the firm's Team / About / People page. When the automated
+// capture is configured (headless browser on the server), the tool visits the
+// site, finds the individual, and records the match; otherwise the banker finds
+// them manually and attaches a screenshot to the file. The captured screenshot
+// itself is shown in-session only (not persisted into the assessment blob);
+// what we persist is the lightweight proof metadata below.
+interface EmployerProof {
+  company?: string;
+  profileUrl?: string;
+  state?: DocState;
+  /** Text around the matched name — the corroboration snippet. */
+  matchedText?: string;
+  confidence?: "high" | "medium" | "low";
+  /** ISO timestamp of the automated capture, when one was run. */
+  capturedAt?: string;
+}
+
 export interface CorroborationData {
   regulated?: boolean;
   fca?: FcaExtract | null;
+  employer?: EmployerProof;
   docs?: Record<string, DocState>;
 }
 
@@ -59,6 +78,14 @@ const DOC_STATES: { value: DocState; label: string }[] = [
 
 const fcaSearchPageUrl = (name: string) =>
   `https://register.fca.org.uk/s/search?q=${encodeURIComponent(name)}&type=Individuals`;
+
+// A web search pre-aimed at the person's profile on their employer's own site
+// (team / about / people / leadership pages), where a screenshot proves the
+// employment that underpins the wealth story.
+const employerProfileSearchUrl = (name: string, company: string) =>
+  `https://www.google.com/search?q=${encodeURIComponent(
+    `"${name}"${company ? ` "${company}"` : ""} (team OR about OR people OR leadership OR "our team")`,
+  )}`;
 
 export function CorroborationDocuments({
   clientName,
@@ -137,6 +164,77 @@ export function CorroborationDocuments({
 
   const docState = (id: string): DocState => (data.docs?.[id] as DocState) ?? "to_collect";
   const setDocState = (id: string, s: DocState) => update({ docs: { ...(data.docs ?? {}), [id]: s } });
+
+  const employer = data.employer ?? {};
+  const setEmployer = (partial: Partial<EmployerProof>) =>
+    update({ employer: { ...employer, ...partial } });
+
+  // Automated capture, gated like the FCA lookup: when the server has a
+  // headless browser available it visits the company site and finds the
+  // individual; otherwise the manual flow below is the only path. The captured
+  // screenshot is held in component state only (not persisted into the blob).
+  const employerStatus = useQuery({
+    queryKey: ["employer-proof-status"],
+    queryFn: () => customFetch<{ configured: boolean }>("/api/corroboration/status"),
+    staleTime: 5 * 60_000,
+  });
+  // A 503 at capture time (browser missing) flips this off for the session even
+  // if /status said configured, so the UI stops offering the auto path.
+  const [autoUnavailable, setAutoUnavailable] = useState(false);
+  const autoCaptureConfigured = employerStatus.data?.configured === true && !autoUnavailable;
+
+  const [shot, setShot] = useState<string | null>(null);
+  const [captureError, setCaptureError] = useState<string | null>(null);
+  // Monotonic token: a slow/stale capture response must not overwrite the
+  // result of a newer one (the banker edited the URL and retried).
+  const captureSeq = useRef(0);
+
+  const capture = useMutation({
+    mutationFn: (vars: { name: string; url: string; seq: number }) =>
+      customFetch<{
+        configured: boolean;
+        found: boolean;
+        profileUrl: string;
+        matchedText: string;
+        confidence: "high" | "medium" | "low";
+        screenshotBase64?: string;
+      }>("/api/corroboration/employer/capture", {
+        method: "POST",
+        body: JSON.stringify({ name: vars.name, url: vars.url }),
+      }),
+    onMutate: () => {
+      setCaptureError(null);
+      setShot(null);
+    },
+    onSuccess: (res, vars) => {
+      if (vars.seq !== captureSeq.current) return;
+      setShot(res.screenshotBase64 ? `data:image/png;base64,${res.screenshotBase64}` : null);
+      // Record the proof metadata, but do NOT auto-mark it "provided" — a raw
+      // name match isn't certification. The banker reviews the screenshot +
+      // snippet and sets the state.
+      setEmployer({
+        profileUrl: res.profileUrl,
+        matchedText: res.matchedText,
+        confidence: res.confidence,
+        capturedAt: new Date().toISOString(),
+      });
+    },
+    onError: (err, vars) => {
+      if (vars.seq !== captureSeq.current) return;
+      // 503 → capture genuinely unavailable (browser missing): drop to manual.
+      if ((err as { status?: number }).status === 503) {
+        setAutoUnavailable(true);
+        return;
+      }
+      setCaptureError(
+        "The site could not be captured automatically. Find the profile and attach a screenshot to the file.",
+      );
+    },
+  });
+
+  const runCapture = (url: string) => {
+    capture.mutate({ name: clientName, url, seq: ++captureSeq.current });
+  };
 
   return (
     <div className="space-y-6 border-t border-border pt-8">
@@ -310,6 +408,155 @@ export function CorroborationDocuments({
             )}
           </div>
         )}
+      </div>
+
+      {/* Company / employer corroboration — proof the person works where the
+          wealth story says. Manual today (find them on the firm's site, attach a
+          screenshot); the automated capture can populate this later. */}
+      <div className="border border-border bg-secondary/20 p-4 space-y-4">
+        <div className="flex items-start gap-3">
+          <Building2 className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold">Company / employer proof</h3>
+            <p className="text-xs text-muted-foreground">
+              Find {clientName || "the client"} on their employer's own site — the Team, About or
+              People page — and attach a screenshot of that profile. It corroborates the employment
+              the wealth story rests on.
+            </p>
+          </div>
+        </div>
+
+        <div className="pl-8 space-y-3 print:hidden">
+          <div className="flex flex-wrap gap-2">
+            <Input
+              value={employer.company ?? ""}
+              onChange={(e) => setEmployer({ company: e.target.value })}
+              placeholder="Employer / company name"
+              className="h-9 max-w-xs rounded-md border-border bg-card"
+            />
+            <a
+              href={employerProfileSearchUrl(clientName, employer.company ?? "")}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-card text-sm hover:bg-secondary"
+            >
+              <Search className="w-4 h-4" /> Find on the company site
+            </a>
+          </div>
+          <Input
+            value={employer.profileUrl ?? ""}
+            onChange={(e) => {
+              // Editing the URL invalidates any capture taken from the old one —
+              // clear the proof + session screenshot so we never show proof for
+              // URL A while the field reads URL B.
+              setShot(null);
+              setEmployer({
+                profileUrl: e.target.value,
+                matchedText: undefined,
+                confidence: undefined,
+                capturedAt: undefined,
+              });
+            }}
+            placeholder="Profile or company URL (paste here)"
+            disabled={capture.isPending}
+            className="h-9 rounded-md border-border bg-card"
+          />
+
+          {/* Automated capture — only when the server has a headless browser. */}
+          {autoCaptureConfigured && (
+            <div className="space-y-2">
+              <Button
+                onClick={() => employer.profileUrl?.trim() && runCapture(employer.profileUrl.trim())}
+                disabled={!employer.profileUrl?.trim() || capture.isPending}
+                className="h-9 rounded-md bg-primary text-primary-foreground"
+              >
+                {capture.isPending ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Capturing…</>
+                ) : (
+                  <><Building2 className="w-4 h-4 mr-2" /> Auto-capture from site</>
+                )}
+              </Button>
+
+              {employer.capturedAt && employer.confidence && (
+                <div className="space-y-2">
+                  <p className="text-sm flex items-center gap-2">
+                    <span
+                      className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                        employer.confidence === "high"
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                          : employer.confidence === "medium"
+                            ? "bg-amber-100 text-amber-800 border-amber-200"
+                            : "bg-red-100 text-red-800 border-red-200"
+                      }`}
+                    >
+                      {employer.confidence === "low" ? "Not found" : `${employer.confidence} confidence`}
+                    </span>
+                    {employer.matchedText ? (
+                      <span className="text-muted-foreground line-clamp-2">{employer.matchedText}</span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {clientName} was not found on that page — try the team/about URL, or attach a screenshot manually.
+                      </span>
+                    )}
+                  </p>
+                  {shot && (
+                    <a href={shot} target="_blank" rel="noopener noreferrer" className="block">
+                      <img
+                        src={shot}
+                        alt={`${clientName} on the employer site`}
+                        className="max-h-72 w-auto rounded-md border border-border"
+                      />
+                    </a>
+                  )}
+                  {shot && (
+                    <p className="text-xs text-muted-foreground">
+                      Shown for this session — save the image (right-click) or screenshot it to attach to the file.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {captureError && (
+                <p className="flex items-center gap-2 text-sm text-destructive">
+                  <AlertCircle className="w-4 h-4" /> {captureError}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">Screenshot of profile attached to file:</span>
+            <Select
+              value={employer.state ?? "to_collect"}
+              onValueChange={(v) => setEmployer({ state: v as DocState })}
+            >
+              <SelectTrigger className="w-[170px] h-8 rounded-md border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-md">
+                {DOC_STATES.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Print handoff line */}
+        <div className="hidden print:block pl-8 text-sm">
+          {employer.company ? (
+            <p>
+              <strong>Employer:</strong> {employer.company}
+              {employer.profileUrl ? ` — ${employer.profileUrl}` : ""}
+              {` (${DOC_STATES.find((s) => s.value === (employer.state ?? "to_collect"))?.label})`}
+            </p>
+          ) : (
+            <p className="text-muted-foreground">
+              Company employment proof — outstanding; attach a screenshot of the profile from the
+              employer's site to the file.
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Suggested supporting documents */}

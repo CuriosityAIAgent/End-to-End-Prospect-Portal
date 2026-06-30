@@ -60,9 +60,37 @@ service), delete it and add **one** service from the repo root instead.
 | `SOW_WRITER_MODEL` | optional | Claude model id (default `claude-sonnet-4-6`). |
 | `WEB_DIST` | optional | Override the static-frontend path (default `artifacts/sow-tool/dist/public`). |
 | `GOOGLE_APPLICATION_CREDENTIALS` | optional | Only for the object-storage routes (standard GCS). |
+| `FCA_API_EMAIL` + `FCA_API_KEY` | optional | Free FCA Register API — auto-attaches the regulated-individual extract. Without them the corroboration UI falls back to a manual register deep link. |
+| `EMPLOYER_PROOF_ENABLED` | optional | Set to `true` to enable the automated company-employment capture (headless browser). Requires Chromium installed (see below). Off by default → the UI uses the manual find-and-attach flow. |
 
 All AI/search keys degrade gracefully: with no DataForSEO/Jina the model's own
 web search is used; with no Anthropic key the OpenAI writer is used.
+
+### Automated company-employment proof (optional)
+
+The corroboration step can visit a prospect's employer site, find them on a
+Team/About page, and screenshot their profile. This uses Playwright + headless
+Chromium, which are **not** installed by default. To enable:
+
+1. Install the browser in the deploy image: `pnpm --filter @workspace/api-server exec playwright install --with-deps chromium`.
+2. Set `EMPLOYER_PROOF_ENABLED=true`.
+
+`playwright` is an **optional dependency**, so a normal install/build is
+unaffected if you skip this. When the flag is off or the browser is missing, the
+`/api/corroboration/*` endpoints report `configured:false` and the UI shows the
+manual flow. (Note: this browser-automation path has not yet been validated
+against a live deploy — exercise it before relying on it in production.)
+
+> **Security — read before enabling.** This endpoint drives a headless browser
+> to a banker-supplied URL, so it is an SSRF surface. The code blocks
+> private/loopback/link-local/metadata IPs on every request (initial nav,
+> redirects, and subresources) and only follows same-origin links. **Residual
+> risk:** a DNS-rebinding attack (public answer to the server's resolver,
+> private answer to Chromium's) is not fully closed. The app also has **no auth
+> in front of `/api`** today. Before enabling the flag in production, run the
+> service with **restricted egress** (no route to the internal network / cloud
+> metadata) and/or put auth in front of it. Leave it off in shared/multi-tenant
+> environments until that's in place.
 
 ## Other hosts
 
