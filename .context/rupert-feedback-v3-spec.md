@@ -69,7 +69,7 @@ corroboration of the story."*
 
 ---
 
-## Point 7 — company-employment proof (FOLLOW-UP, not in this PR)
+## Point 7 — company-employment proof (BUILT — manual + gated automation)
 
 **Feedback:** *"If a company is mentioned in the briefing pack: go to the
 company's website, find the individual in the Team / About Us page, screenshot
@@ -77,37 +77,50 @@ their profile, and add it to the Source-of-Wealth corroboration as proof they
 work there. We probably need a Playwright integration — and we can reuse the
 same for the FCA register extract."*
 
-### Step 1 — manual capture (built + verified, held back from this PR)
+### Manual capture (verified)
 A **"Company / employer proof"** block in `corroboration-documents.tsx`:
 - Banker enters the employer name → one-click **web search pre-aimed at the
   person's profile on the firm's own Team/About/People page**.
-- A field to paste the profile URL where they were found.
+- A field to paste the profile (or company) URL where they were found.
 - A state control ("Screenshot of profile attached to file") + a printed handoff
-  line — mirroring exactly how the FCA fallback works when not auto-configured.
+  line — mirroring how the FCA fallback works when not auto-configured.
 
-This delivers the corroboration goal today and structures the data
-(`CorroborationData.employer`) so the automated capture can populate it later.
+### Automated capture (built, gated, NOT yet validated against a live browser)
+A **gated capability, same shape as the FCA route**:
+- `artifacts/api-server/src/lib/employerProof.ts` — lazy-imports `playwright`,
+  launches headless Chromium, navigates the given URL, finds the person on the
+  page (or follows team/about/people links), and screenshots the profile.
+  Returns `{ found, profileUrl, matchedText, confidence, screenshotBase64 }`.
+- `artifacts/api-server/src/routes/corroboration.ts` — `GET /corroboration/status`
+  (→ `{ configured }`) and `POST /corroboration/employer/capture`. Degrades to
+  503 `configured:false` when the browser is missing, so the UI falls back to
+  manual.
+- UI: when `status.configured`, an **"Auto-capture from site"** button runs the
+  capture, shows the screenshot + a confidence badge + the matched snippet, and
+  records the proof metadata. The screenshot is shown **in-session only** (not
+  persisted into the assessment blob); persisted fields are
+  `employer.{profileUrl,matchedText,confidence,capturedAt,state}`.
 
-### Deferred: the automated Playwright capture (needs an infra decision)
-Build it as a **gated capability, identical in shape to the FCA route**
-(`fca.ts`): a `/api/corroboration/employer/*` route that, when configured,
-launches headless Chromium, finds the company site → the team/about page → the
-person, and screenshots the profile into object storage; when **not** configured
-the UI shows the manual fallback above. Note re: FCA — it already uses the
-**free official FCA API (no scraping)**, so Playwright is *not* needed there; the
-reuse Rupert has in mind is the general "visit a page, capture proof" mechanism.
+Infra (all handled so the default deploy is unaffected):
+- `playwright` is an **optionalDependency** of `@workspace/api-server`; already
+  in the esbuild `external` list, so the server bundles without it.
+- Gated on `EMPLOYER_PROOF_ENABLED=true` + Chromium installed
+  (`playwright install --with-deps chromium`). See `DEPLOY.md`.
 
-Why deferred rather than shipped:
-- New **native dependency** (`playwright`) — can't be esbuild-bundled, must be an
-  external in `artifacts/api-server/build.mjs`.
-- The Railway deploy must **install Chromium** (`playwright install --with-deps`)
-  — a Dockerfile/nixpacks change.
-- Screenshots need to land in the existing **object storage** (GCS) and be
-  referenced from `CorroborationData.employer`.
-- The browser automation can't be verified end-to-end from the dev workspace.
+**Not verified:** the browser-automation path has not been exercised against a
+live site/Chromium (no browser/DB in the dev workspace) — typecheck + build only.
+Validate before enabling the flag in prod. FCA still uses the free official API
+(no scraping); the reuse Rupert mentioned is this general capture mechanism.
 
-Open question for Rupert/team: green-light the deploy infra (Chromium in
-Railway) so the automated capture can be turned on behind the gate?
+**Security (codex-reviewed, 3 rounds).** Capture is an SSRF surface, so: http(s)
+only; every request (initial nav + redirects + subresources) is intercepted and
+aborted if its host resolves to a private/loopback/link-local/metadata address;
+followed links are restricted to the same `URL.origin`. Client: sequence-token
+race guard, URL input disabled mid-capture, proof cleared when the URL is edited,
+and no auto-"provided" from a weak match (the banker confirms). **Residual risk
+accepted + documented:** DNS rebinding is not fully closed (needs browser-level
+IP pinning) and there is no auth in front of `/api`. The capability is OFF by
+default; `DEPLOY.md` requires restricted egress / auth before enabling.
 
 ---
 

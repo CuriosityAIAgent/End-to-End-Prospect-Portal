@@ -8,6 +8,7 @@ import sourceOfWealthRouter from "./sourceOfWealth";
 import transcriptionRouter from "./transcription";
 import storageRouter from "./storage";
 import fcaRouter from "./fca";
+import corroborationRouter from "./corroboration";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(sourceOfWealthRouter);
 router.use(transcriptionRouter);
 router.use(storageRouter);
 router.use(fcaRouter);
+router.use(corroborationRouter);
 
 export default router;
