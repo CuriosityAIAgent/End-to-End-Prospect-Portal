@@ -39,7 +39,12 @@ export function ReferralPointers({ prospectName, segment, referralRoutes }: Refe
   const name = prospectName.trim();
   const routes = (referralRoutes ?? []).filter((r) => r.trim().length > 0);
 
-  const channels = [
+  const channels: {
+    icon: React.ReactNode;
+    title: string;
+    body: string;
+    link?: { href: string; label: string };
+  }[] = [
     {
       icon: <Users className="w-4 h-4 text-primary" />,
       title: "1 · Client referral (highest yield)",
@@ -49,6 +54,9 @@ export function ReferralPointers({ prospectName, segment, referralRoutes }: Refe
       icon: <Building2 className="w-4 h-4 text-primary" />,
       title: "2 · JPMorgan internal",
       body: "Which JPM coverage banker (CIB, markets, or asset management) holds the relationship with their firm or counterparties? Ask for a warm introduction to the private-bank side.",
+      // Internal-only shortlink — launches go/IQ to find the covering banker.
+      // Won't resolve on external machines; useful inside the JPM network.
+      link: { href: "https://go/iq", label: "Open go/IQ to find the covering banker (internal)" },
     },
     {
       icon: <Snowflake className="w-4 h-4 text-primary" />,
@@ -74,6 +82,11 @@ export function ReferralPointers({ prospectName, segment, referralRoutes }: Refe
             <div>
               <div className="text-sm font-medium text-foreground">{c.title}</div>
               <p className="text-sm text-muted-foreground">{c.body}</p>
+              {c.link && (
+                <div className="mt-2 print:hidden">
+                  <SearchLink href={c.link.href}>{c.link.label}</SearchLink>
+                </div>
+              )}
             </div>
           </div>
         ))}
