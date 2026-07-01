@@ -25,7 +25,7 @@ import {
   serializeJob,
   updateJob,
 } from "../jobs/runner";
-import { normalizeSubject, loadFreshCorpus, storeCorpus } from "../research/cache";
+import { normalizeSubject, loadFreshCorpus, storeCorpus, clearCorpus } from "../research/cache";
 import {
   CreateProspectBody,
   GetProspectParams,
@@ -484,8 +484,12 @@ router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const requestedDepth = (req.body as { depth?: unknown } | undefined)?.depth;
-  const depth: ResearchDepth = requestedDepth === "quick" ? "quick" : "deep";
+  const reqBody = req.body as { depth?: unknown; force?: unknown } | undefined;
+  const depth: ResearchDepth = reqBody?.depth === "quick" ? "quick" : "deep";
+  // force=true bypasses the cached research corpus and re-runs the web fan-out —
+  // used by the bulk re-generation (align to standard) so research-query changes
+  // (e.g. the watch-item exact-name fix) land on existing profiles.
+  const force = reqBody?.force === true;
 
   const [prospect] = await db
     .select()
@@ -502,9 +506,11 @@ router.post("/prospects/:id/prep", async (req, res): Promise<void> => {
   // starting a duplicate run.
   const { job, created } = await enqueueUniqueJob("prospect_prep", prospect.id);
   if (created) {
-    schedule(() => runPrepJob(job.id, prospect.id, depth), job.id);
+    schedule(() => runPrepJob(job.id, prospect.id, depth, force), job.id);
   }
-  res.status(202).json({ jobId: job.id });
+  // `created` lets a caller (e.g. the bulk align script) tell a fresh forced run
+  // from attaching to an already-running job that may not have used `force`.
+  res.status(202).json({ jobId: job.id, created });
 });
 
 // The latest prep job for a prospect — lets the screen reattach to a run in
@@ -529,6 +535,7 @@ async function runPrepJob(
   jobId: string,
   prospectId: number,
   depth: ResearchDepth,
+  force = false,
 ): Promise<void> {
   const fail = async (error: string) => {
     await updateJob(jobId, { status: "failed", error: error.slice(0, 300) });
@@ -556,14 +563,25 @@ async function runPrepJob(
     // Knowledge base: reuse fresh cached research for this subject and skip the
     // slow web fan-out; otherwise research and cache the result for next time.
     const subjectKey = normalizeSubject(prospect.name, researchContext(prospect), depth);
-    let passages = await loadFreshCorpus(subjectKey).catch((err) => {
-      logger.warn({ err, jobId }, "Research cache read failed (non-fatal)");
-      return [] as Awaited<ReturnType<typeof loadFreshCorpus>>;
-    });
+    // force → skip the cached corpus so research re-runs with the current query
+    // logic; otherwise reuse fresh cache and skip the slow web fan-out.
+    let passages = force
+      ? ([] as Awaited<ReturnType<typeof loadFreshCorpus>>)
+      : await loadFreshCorpus(subjectKey).catch((err) => {
+          logger.warn({ err, jobId }, "Research cache read failed (non-fatal)");
+          return [] as Awaited<ReturnType<typeof loadFreshCorpus>>;
+        });
 
     if (passages.length > 0) {
       await updateJob(jobId, { progress: 45, stageDetail: "Using saved research…" });
     } else if (retrievalConfigured()) {
+      // A forced refresh purges the old corpus first so stale passages from a
+      // prior query can't survive (storeCorpus only upserts the new set).
+      if (force) {
+        await clearCorpus(subjectKey).catch((err) =>
+          logger.warn({ err, jobId }, "Research cache clear failed (non-fatal)"),
+        );
+      }
       const research = await deepResearch(prospect.name, {
         context: researchContext(prospect),
         depth,

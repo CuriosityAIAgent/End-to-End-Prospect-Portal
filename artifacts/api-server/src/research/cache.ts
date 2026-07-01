@@ -97,6 +97,13 @@ export async function loadFreshCorpus(subject: string): Promise<RetrievedPassage
   }));
 }
 
+/** Drop all cached passages for a subject. Used by a forced refresh so stale
+ *  rows from an older query don't linger (storeCorpus only upserts the new set;
+ *  loadFreshCorpus would otherwise still return the old, non-stale rows). */
+export async function clearCorpus(subject: string): Promise<void> {
+  await db.delete(documentsTable).where(eq(documentsTable.subject, subject));
+}
+
 /** Upsert a freshly-retrieved corpus for a subject (dedup on subject + URL). */
 export async function storeCorpus(subject: string, passages: RetrievedPassage[]): Promise<void> {
   if (passages.length === 0) return;
