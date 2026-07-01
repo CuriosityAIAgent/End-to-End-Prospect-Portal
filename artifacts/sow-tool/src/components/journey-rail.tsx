@@ -1,38 +1,28 @@
-import type { ReactNode } from "react";
-import { Check, ChevronDown, Compass } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { ChevronDown, Compass } from "lucide-react";
 
 // ── Journey rail + step sections ────────────────────────────────────────────
-// One backbone for the whole prospect→client journey. The rail is always
-// visible (sticky) and tells the banker where they are and lets them jump
-// between steps; the page below shows the steps as an accordion so only the
-// active one is open. The SAME rail+steps render on the prospect page and the
-// post-convert assessment page, so the flow never looks like two tools.
-
-export type StepStatus = "done" | "current" | "todo";
+// One backbone for the whole prospect→client journey, IDENTICAL on the prospect
+// page and the converted (assessment) page. The rail is sticky and lets the
+// banker jump between the four steps; a scroll-spy highlight shows where they
+// are so it never gets lost. The steps below are one continuous document — all
+// open by default, each independently collapsible. There is deliberately NO
+// per-step "done/todo" status any more: the four are just navigable anchors.
 
 export interface JourneyStep {
   key: string;
   label: string;
-  status: StepStatus;
-  /** Shown for context but not selectable (e.g. pre-convert steps on the
-   *  assessment page, whose content lives on the prospect record). */
-  disabled?: boolean;
 }
 
-/** Numbered dot / tick shared by the rail and the section headers. */
-function StepDot({ index, status, active }: { index: number; status: StepStatus; active: boolean }) {
-  if (status === "done") {
-    return (
-      <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-emerald-100 text-emerald-700 border border-emerald-200">
-        <Check className="w-3.5 h-3.5" />
-      </span>
-    );
-  }
+/** Numbered dot shared by the rail and the section headers. */
+function StepDot({ index, active }: { index: number; active: boolean }) {
   return (
     <span
       className={[
         "shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-semibold border",
-        active ? "border-primary text-primary bg-primary/10" : "border-muted-foreground/30 text-muted-foreground",
+        active
+          ? "border-primary text-primary bg-primary/10"
+          : "border-muted-foreground/30 text-muted-foreground",
       ].join(" ")}
     >
       {index + 1}
@@ -40,43 +30,68 @@ function StepDot({ index, status, active }: { index: number; status: StepStatus;
   );
 }
 
+/** Which step section is currently in view — drives the rail highlight so the
+ *  banker can keep track of where they are without scrolling back up. */
+function useScrollSpy(keys: string[]): string {
+  const [active, setActive] = useState(keys[0] ?? "");
+  const signature = keys.join("|");
+  useEffect(() => {
+    const els = keys
+      .map((k) => document.getElementById(`step-${k}`))
+      .filter((el): el is HTMLElement => !!el);
+    if (els.length === 0) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActive(visible[0].target.id.replace(/^step-/, ""));
+      },
+      // Active band runs from just below the sticky header down to ~45% of the
+      // viewport — wide enough that even a collapsed (header-only) section still
+      // intersects it, so the highlight never gets stuck on the previous step.
+      { rootMargin: "-80px 0px -55% 0px", threshold: 0 },
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature]);
+  return active;
+}
+
 export function JourneyRail({
   steps,
-  activeKey,
   onSelect,
   title = "Plan of action",
 }: {
   steps: JourneyStep[];
-  activeKey: string;
   onSelect: (key: string) => void;
   title?: string;
 }) {
+  const activeKey = useScrollSpy(steps.map((s) => s.key));
   return (
-    <nav aria-label="Prospect journey" className="lg:sticky lg:top-24 print:hidden">
+    <nav aria-label="Prospect journey" className="md:sticky md:top-20 md:self-start print:hidden">
       <div className="flex items-center gap-2 mb-4">
         <Compass className="w-4 h-4 text-primary" />
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">{title}</h2>
       </div>
-      <ol className="flex lg:flex-col gap-1.5 overflow-x-auto lg:overflow-visible">
+      <ol className="flex md:flex-col gap-1.5 overflow-x-auto md:overflow-visible">
         {steps.map((s, i) => {
           const active = s.key === activeKey;
           return (
-            <li key={s.key} className="shrink-0 lg:shrink">
+            <li key={s.key} className="shrink-0 md:shrink">
               <button
                 type="button"
-                disabled={s.disabled}
                 onClick={() => onSelect(s.key)}
                 aria-current={active ? "step" : undefined}
                 className={[
                   "w-full flex items-center gap-2.5 text-left text-sm rounded-md px-3 py-2.5 border transition-colors",
-                  s.disabled
-                    ? "border-transparent text-muted-foreground/70 cursor-default"
-                    : active
-                      ? "border-primary/40 bg-primary/5 text-foreground font-medium"
-                      : "border-transparent hover:bg-secondary text-muted-foreground",
+                  active
+                    ? "border-primary/40 bg-primary/5 text-foreground font-medium"
+                    : "border-transparent hover:bg-secondary text-muted-foreground",
                 ].join(" ")}
               >
-                <StepDot index={i} status={s.status} active={active} />
+                <StepDot index={i} active={active} />
                 <span className="truncate">{s.label}</span>
               </button>
             </li>
@@ -94,7 +109,6 @@ export function StepSection({
   index,
   title,
   summary,
-  status,
   active,
   onActivate,
   children,
@@ -104,7 +118,6 @@ export function StepSection({
   title: string;
   /** One-line hint shown on the collapsed header. */
   summary?: string;
-  status: StepStatus;
   active: boolean;
   onActivate: () => void;
   children: ReactNode;
@@ -117,7 +130,7 @@ export function StepSection({
         aria-expanded={active}
         className="w-full flex items-center gap-3 p-5 text-left hover:bg-secondary/40 transition-colors print:hover:bg-transparent"
       >
-        <StepDot index={index} status={status} active={active} />
+        <StepDot index={index} active={active} />
         <div className="flex-1 min-w-0">
           <h2 className="text-xl font-serif leading-tight">{title}</h2>
           {summary && !active && (
