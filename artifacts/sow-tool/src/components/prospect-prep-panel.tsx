@@ -597,14 +597,34 @@ export function ProspectPrepPanel({
         <div className="space-y-3">
           <Eyebrow>Advisor Prep · Deep Research</Eyebrow>
           <h2 className="text-[30px] leading-[1.1] font-normal" style={{ fontFamily: SERIF, color: INK }}>
-            Walk in prepared on {prospectName}.
+            {shown ? `Walk in prepared on ${prospectName}.` : `Here's how we'll help you win ${prospectName}.`}
           </h2>
-          <p className="text-sm leading-relaxed max-w-[60ch]" style={{ color: "#4A4A4A" }}>
-            A researched read of where the wealth likely sits — across companies, trusts, foundations
-            and offshore structures — with a cold-call script and the Source-of-Wealth questions to ask,
-            each paired with an anticipated answer to validate with the client. Drafted, independently
-            verified, never to be presented as fact unverified.
-          </p>
+          {shown ? (
+            <p className="text-sm leading-relaxed max-w-[60ch]" style={{ color: "#4A4A4A" }}>
+              A researched read of where the wealth likely sits — across companies, trusts, foundations
+              and offshore structures — with a cold-call script and the Source-of-Wealth questions to ask,
+              each paired with an anticipated answer to validate with the client. Drafted, independently
+              verified, never to be presented as fact unverified.
+            </p>
+          ) : (
+            <div className="text-sm leading-relaxed max-w-[62ch] space-y-3" style={{ color: "#4A4A4A" }}>
+              <p>
+                We'll take you end to end on this prospect. First, we'll run the searches and prepare a
+                pre-meeting briefing pack — where the wealth likely sits, and the questions to ask — so
+                you can walk into a potential meeting fully prepared.
+              </p>
+              <p>
+                Then we'll guide you step by step through calling or emailing them, with ready-to-use
+                templates and hints for success. Once you've met, we'll help you complete a solid file
+                note of the meeting — and that becomes the basis of the Source-of-Wealth document you'll
+                need to submit if you go on to onboard them.
+              </p>
+              <p>
+                Finally, we'll pull together everything you've gathered to populate that Source-of-Wealth
+                and onboard the client seamlessly.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
