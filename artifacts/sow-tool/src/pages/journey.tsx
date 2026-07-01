@@ -6,10 +6,7 @@ import {
   useListAssessments,
   useGetOverview,
   useCreateProspect,
-  useCreateAssessment,
   getListProspectsQueryKey,
-  getListAssessmentsQueryKey,
-  getGetOverviewQueryKey,
 } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { OverviewVideo } from "@/components/overview-video";
@@ -17,9 +14,7 @@ import { SectionInfo } from "@/components/section-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { reviewTypeOptions, riskRatingOptions } from "@/lib/sowCatalog";
 import {
   buildJourney,
   stageCounts,
@@ -37,7 +32,6 @@ import {
   Clock,
   AlertTriangle,
   Plus,
-  UserPlus,
   Compass,
 } from "lucide-react";
 type StageFilter = JourneyStageId | "all";
@@ -115,37 +109,6 @@ export default function Journey() {
     );
   };
 
-  // New Assessment dialog
-  const createAssessment = useCreateAssessment();
-  const [isAssessmentOpen, setIsAssessmentOpen] = useState(false);
-  const [aName, setAName] = useState("");
-  const [aReviewType, setAReviewType] = useState<string>("onboarding");
-  const [aRiskRating, setARiskRating] = useState<string>("standard");
-
-  const handleCreateAssessment = () => {
-    if (!aName.trim()) return;
-    createAssessment.mutate(
-      {
-        data: {
-          clientName: aName.trim(),
-          reviewType: aReviewType as never,
-          riskRating: aRiskRating as never,
-          status: "draft",
-          data: {},
-        },
-      },
-      {
-        onSuccess: (created) => {
-          setIsAssessmentOpen(false);
-          setAName("");
-          queryClient.invalidateQueries({ queryKey: getListAssessmentsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetOverviewQueryKey() });
-          setLocation(`/assessment/${created.id}`);
-        },
-      },
-    );
-  };
-
   const hasAnything = items.length > 0;
 
   return (
@@ -164,71 +127,6 @@ export default function Journey() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Dialog open={isAssessmentOpen} onOpenChange={setIsAssessmentOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="lg" className="rounded-md border-border transition-all hover:bg-secondary hover:border-primary/50 hover:text-primary">
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  New Assessment
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px] rounded-md border-border bg-card">
-                <DialogHeader>
-                  <DialogTitle className="font-serif text-xl">Create Assessment</DialogTitle>
-                  <DialogDescription>
-                    Start a Source of Wealth file directly, for a client who skips the prospecting funnel.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <label htmlFor="a-name" className="text-sm font-medium">Client Name</label>
-                    <Input
-                      id="a-name"
-                      value={aName}
-                      onChange={(e) => setAName(e.target.value)}
-                      className="rounded-md bg-background border-border"
-                      placeholder="e.g. John Doe or Acme Corp"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium">Review Type</label>
-                    <Select value={aReviewType} onValueChange={setAReviewType}>
-                      <SelectTrigger className="rounded-md bg-background border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-md">
-                        {reviewTypeOptions.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium">Risk Rating</label>
-                    <Select value={aRiskRating} onValueChange={setARiskRating}>
-                      <SelectTrigger className="rounded-md bg-background border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-md">
-                        {riskRatingOptions.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAssessmentOpen(false)} className="rounded-md">Cancel</Button>
-                  <Button
-                    onClick={handleCreateAssessment}
-                    disabled={!aName.trim() || createAssessment.isPending}
-                    className="rounded-md bg-primary text-primary-foreground"
-                  >
-                    {createAssessment.isPending ? "Creating..." : "Create"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
             <Dialog open={isProspectOpen} onOpenChange={setIsProspectOpen}>
               <DialogTrigger asChild>
                 <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5 transition-all rounded-md shadow-md">
@@ -327,7 +225,7 @@ export default function Journey() {
               <Compass className="w-12 h-12 text-muted mb-4" />
               <h3 className="text-lg font-medium mb-1">No relationships yet</h3>
               <p className="text-muted-foreground mb-4 text-sm max-w-sm">
-                Add a prospect to begin the journey, or create a Source of Wealth assessment directly.
+                Add a prospect to begin the journey.
               </p>
               <Button onClick={() => setIsProspectOpen(true)} className="rounded-md bg-primary text-primary-foreground">
                 Add First Prospect
