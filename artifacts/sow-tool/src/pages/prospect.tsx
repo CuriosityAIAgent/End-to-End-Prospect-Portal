@@ -77,6 +77,24 @@ export default function Prospect() {
     }
   }, [prospect, id]);
 
+  // The prep pack is generated asynchronously by a background job and arrives
+  // via a query refetch, not a user edit. The one-time init effect above won't
+  // pick it up (already initialised for this id), so merge it in when it lands.
+  // Without this the briefing only appears after a remount (navigate away and
+  // back). Syncing latestData too keeps the debounced autosave from round-
+  // tripping a data blob that's missing the freshly generated prep and wiping
+  // it server-side. Other localData fields (in-flight banker edits) are kept.
+  const serverPrep = (prospect?.data as Record<string, any> | undefined)?.prep;
+  useEffect(() => {
+    if (!serverPrep) return;
+    setLocalData((prev) => {
+      if (prev.prep === serverPrep) return prev;
+      const next = { ...prev, prep: serverPrep };
+      latestData.current = next;
+      return next;
+    });
+  }, [serverPrep]);
+
   const cancelPendingSave = useCallback(() => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
