@@ -163,7 +163,7 @@ export function resolveQualification(
   return { verdict, threshold: QUALIFY_THRESHOLD_USD, currency: "USD", rationale: "" };
 }
 
-function WealthEstimatePanel({ estimate }: { estimate: NonNullable<PrepPack["wealthEstimate"]> }) {
+export function WealthEstimatePanel({ estimate }: { estimate: NonNullable<PrepPack["wealthEstimate"]> }) {
   if (estimate.refused) {
     return (
       <section className="border rounded p-5" style={{ borderColor: BORDER, background: "#FBFAF7" }}>
@@ -254,8 +254,8 @@ function WealthEstimatePanel({ estimate }: { estimate: NonNullable<PrepPack["wea
 }
 
 // ── "Our read" — structured, with legacy prose fallback ─────────────────────
-function ReadSection({ read, fallback }: { read?: MarketRead; fallback: string }) {
-  if (!read || (!read.narrative?.trim() && !read.headline.trim() && read.keyFacts.length === 0 && read.themes.length === 0)) {
+export function ReadSection({ read, fallback }: { read?: MarketRead; fallback: string }) {
+  if (!read || (!read.narrative?.trim() && !read.headline?.trim() && (read.keyFacts?.length ?? 0) === 0 && (read.themes?.length ?? 0) === 0)) {
     if (!fallback.trim()) return null;
     return (
       <section className="space-y-3">
@@ -274,16 +274,16 @@ function ReadSection({ read, fallback }: { read?: MarketRead; fallback: string }
       )}
 
       {/* Headline — set apart in a tinted band so it lands first */}
-      {read.headline.trim() && (
+      {read.headline?.trim() && (
         <div className="border-l-2 pl-4 py-1" style={{ borderColor: ACCENT }}>
           <p className="text-[18px] leading-snug" style={{ fontFamily: SERIF, color: INK }}>{read.headline}</p>
         </div>
       )}
 
       {/* Key facts — scannable boxes, one fact each */}
-      {read.keyFacts.length > 0 && (
+      {(read.keyFacts?.length ?? 0) > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {read.keyFacts.map((f, i) => (
+          {(read.keyFacts ?? []).map((f, i) => (
             <div key={i} className="border rounded-md px-3.5 py-2.5" style={{ borderColor: BORDER, background: "#FBFAF7" }}>
               <div className="text-[10px] font-semibold uppercase tracking-[0.12em] mb-0.5" style={{ color: ACCENT }}>{f.label}</div>
               <div className="text-[14px] leading-snug" style={{ color: INK }}>{f.value}</div>
@@ -293,9 +293,9 @@ function ReadSection({ read, fallback }: { read?: MarketRead; fallback: string }
       )}
 
       {/* Themes — each its own card with an accent spine and an airy fact list */}
-      {read.themes.length > 0 && (
+      {(read.themes?.length ?? 0) > 0 && (
         <div className="space-y-3">
-          {read.themes.map((t) => (
+          {(read.themes ?? []).map((t) => (
             <div key={t.id} className="border rounded-md overflow-hidden flex" style={{ borderColor: BORDER }}>
               <div className="w-1 shrink-0" style={{ background: ACCENT }} />
               <div className="flex-1 p-4">
@@ -303,9 +303,9 @@ function ReadSection({ read, fallback }: { read?: MarketRead; fallback: string }
                   <h4 className="text-[15px] font-semibold" style={{ color: INK }}>{t.heading}</h4>
                   {t.takeaway && <p className="text-[13px] leading-snug mt-0.5" style={{ color: "#7A7A6F" }}>{t.takeaway}</p>}
                 </div>
-                {t.facts.length > 0 && (
+                {(t.facts?.length ?? 0) > 0 && (
                   <ul className="space-y-2">
-                    {t.facts.map((f, j) => (
+                    {(t.facts ?? []).map((f, j) => (
                       <li key={j} className="text-[14px] leading-[1.5] pl-4 relative" style={{ color: INK }}>
                         <span className="absolute left-0 top-[0.45em] w-1.5 h-1.5 rounded-full" style={{ background: ACCENT }} />
                         {f.text}
@@ -352,25 +352,35 @@ export function ApproachSection({
   onCopyVariant,
 }: {
   approach?: Approach;
-  fallback: ColdCallScript;
+  /** Optional legacy cold-call script. May be absent on older carried data. */
+  fallback?: ColdCallScript;
   onCopyVariant?: (channel: "email" | "call", variantId: string, label: string) => void;
 }) {
-  const [channel, setChannel] = useState<"email" | "call">("email");
-  const [idx, setIdx] = useState<{ email: number; call: number }>({ email: 0, call: 0 });
+  // Tolerate partial/legacy carried data — any of these arrays can be missing.
+  const emails = approach?.email ?? [];
+  const calls = approach?.call ?? [];
+  const hasApproach = emails.length > 0 || calls.length > 0;
 
-  const hasApproach = !!approach && (approach.email.length > 0 || approach.call.length > 0);
-  const objections = approach?.anticipatedObjections ?? fallback.anticipatedObjections;
+  // Default to the first channel that actually has content, so a call-only
+  // (or email-only) carried payload doesn't render as a blank Email tab.
+  const [channel, setChannel] = useState<"email" | "call">(
+    emails.length === 0 && calls.length > 0 ? "call" : "email",
+  );
+  const [idx, setIdx] = useState<{ email: number; call: number }>({ email: 0, call: 0 });
+  const objections = approach?.anticipatedObjections ?? fallback?.anticipatedObjections ?? [];
 
   if (!hasApproach) {
     // Legacy single cold-call script.
-    if (!fallback.opener.trim() && fallback.talkingPoints.length === 0) return null;
+    const opener = fallback?.opener?.trim() ?? "";
+    const talkingPoints = fallback?.talkingPoints ?? [];
+    if (!opener && talkingPoints.length === 0) return null;
     return (
       <section className="space-y-3">
         <div className="flex items-center gap-2"><Phone className="w-4 h-4" style={{ color: ACCENT }} /><SectionTitle>The approach</SectionTitle></div>
-        {fallback.opener.trim() && <p className="text-[15px] leading-[1.6] italic" style={{ color: INK }}>“{fallback.opener}”</p>}
-        {fallback.talkingPoints.length > 0 && (
+        {opener && <p className="text-[15px] leading-[1.6] italic" style={{ color: INK }}>“{opener}”</p>}
+        {talkingPoints.length > 0 && (
           <ul className="space-y-1.5">
-            {fallback.talkingPoints.map((t, i) => (
+            {talkingPoints.map((t, i) => (
               <li key={i} className="text-[15px] leading-[1.55] pl-4 relative" style={{ color: INK }}><span className="absolute left-0" style={{ color: ACCENT }}>—</span>{t}</li>
             ))}
           </ul>
@@ -380,8 +390,7 @@ export function ApproachSection({
     );
   }
 
-  const a = approach!;
-  const variants = channel === "email" ? a.email : a.call;
+  const variants = channel === "email" ? emails : calls;
   const active = idx[channel];
   const v = variants[Math.min(active, variants.length - 1)];
 
@@ -392,8 +401,8 @@ export function ApproachSection({
       {/* Channel tabs */}
       <div className="flex gap-4 border-b" style={{ borderColor: BORDER }}>
         {([
-          { key: "email", icon: Mail, label: `Email${a.email.length ? ` (${a.email.length})` : ""}` },
-          { key: "call", icon: Phone, label: `Call${a.call.length ? ` (${a.call.length})` : ""}` },
+          { key: "email", icon: Mail, label: `Email${emails.length ? ` (${emails.length})` : ""}` },
+          { key: "call", icon: Phone, label: `Call${calls.length ? ` (${calls.length})` : ""}` },
         ] as const).map((c) => {
           const on = channel === c.key;
           const Icon = c.icon;
@@ -452,9 +461,9 @@ export function ApproachSection({
           ) : (
             <>
               <p className="text-[15px] leading-[1.6] italic" style={{ color: INK }}>“{(v as Approach["call"][number]).opener}”</p>
-              {(v as Approach["call"][number]).flow.length > 0 && (
+              {((v as Approach["call"][number]).flow?.length ?? 0) > 0 && (
                 <ol className="space-y-1.5">
-                  {(v as Approach["call"][number]).flow.map((beat, i) => (
+                  {((v as Approach["call"][number]).flow ?? []).map((beat, i) => (
                     <li key={i} className="text-[14px] leading-[1.5] flex gap-2" style={{ color: INK }}>
                       <span style={{ color: ACCENT }}>{i + 1}.</span> {beat}
                     </li>
@@ -462,7 +471,7 @@ export function ApproachSection({
                 </ol>
               )}
               <CopyButton
-                text={`${(v as Approach["call"][number]).opener}\n\n${(v as Approach["call"][number]).flow.map((b, i) => `${i + 1}. ${b}`).join("\n")}`}
+                text={`${(v as Approach["call"][number]).opener}\n\n${((v as Approach["call"][number]).flow ?? []).map((b, i) => `${i + 1}. ${b}`).join("\n")}`}
                 onCopied={() => onCopyVariant?.("call", v.id, v.label)}
               />
             </>

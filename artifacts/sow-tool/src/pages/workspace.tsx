@@ -13,7 +13,10 @@ import { Layout } from "@/components/layout";
 import { FileNotePanel } from "@/components/file-note-panel";
 import { SourceOfWealthSection } from "@/components/source-of-wealth-section";
 import { CorroborationDocuments, type CorroborationData } from "@/components/corroboration-documents";
-import { JourneyRail, StepSection, type JourneyStep, type StepStatus } from "@/components/journey-rail";
+import { JourneyRail, StepSection, type JourneyStep } from "@/components/journey-rail";
+import { ReadSection, WealthEstimatePanel, ApproachSection } from "@/components/prospect-prep-panel";
+import { MeetingFactFind } from "@/components/meeting-fact-find";
+import type { PrepPack } from "@workspace/research-pipeline/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -62,8 +65,10 @@ export default function Workspace() {
   });
 
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
-  // Which journey step is expanded. null = default to Source of Wealth.
-  const [activeStep, setActiveStep] = useState<string | null>(null);
+  // The steps read as one continuous document — every step open by default so
+  // the banker can scroll up and down across all four (same as the prospect
+  // page). A step can still be collapsed from its header. null = all-open.
+  const [openSteps, setOpenSteps] = useState<Set<string> | null>(null);
   const initializedForId = useRef<number | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
@@ -171,41 +176,37 @@ export default function Workspace() {
 
   const progress = calculateProgress(localData, { complete: localMeta.status === "completed" });
 
-  // ── Journey steps — same backbone as the prospect page. Brief & Approach
-  // happened pre-convert (they live on the prospect record), so they show as
-  // done context here; Meeting and Source of Wealth are the live steps. ──
+  // ── Journey steps — IDENTICAL to the prospect page: four navigable anchors,
+  // all open by default, no done/todo ticks. Brief & Approach are carried over
+  // from prospecting (data.prospectProfile.prep) and shown read-only here so the
+  // banker can always look back at them; Meeting and Source of Wealth are live. ──
   const hasFileNote = !!(localData.fileNote as { note?: string } | undefined)?.note?.trim();
   const isComplete = localMeta.status === "completed";
-  // A converted assessment carries the prospect's profile across (data.prospectProfile);
-  // an assessment created directly from the Journey page does not — so don't claim
-  // the pre-convert steps were done for standalone assessments.
-  const fromProspect = !!localData.prospectProfile;
-  const preStatus: StepStatus = fromProspect ? "done" : "todo";
-  // A completed assessment is fully done even if it predates the file-note step.
-  const meetingDone = hasFileNote || isComplete;
-  // Open on the first live step that still needs work (the meeting note feeds the
-  // statement). The journey LIST shows the macro funnel phase ("Source of
-  // Wealth"); this in-page default is the next action within it — intentionally
-  // distinct views, not a mismatch.
-  const activeKey = activeStep ?? (meetingDone ? "sow" : "meeting");
+  const carriedPrep = (localData.prospectProfile as { prep?: PrepPack } | undefined)?.prep;
 
   const steps: JourneyStep[] = [
-    { key: "brief", label: "Brief & qualify", status: preStatus, disabled: true },
-    { key: "approach", label: "Approach", status: preStatus, disabled: true },
-    { key: "meeting", label: "Meeting", status: meetingDone ? "done" : activeKey === "meeting" ? "current" : "todo" },
-    { key: "sow", label: "Source of Wealth", status: isComplete ? "done" : activeKey === "sow" ? "current" : "todo" },
+    { key: "brief", label: "Brief & qualify" },
+    { key: "approach", label: "Approach" },
+    { key: "meeting", label: "Meeting" },
+    { key: "sow", label: "Source of Wealth" },
   ];
-  const statusOf = (key: string) => steps.find((s) => s.key === key)!.status;
+
+  const open = openSteps ?? new Set(steps.map((s) => s.key));
+  const isOpen = (key: string) => open.has(key);
+
+  const toggleStep = (key: string) => {
+    const next = new Set(open);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setOpenSteps(next);
+  };
 
   const selectStep = (key: string) => {
-    // Brief & Approach are context-only on this page (disabled in the rail).
-    if (key !== "meeting" && key !== "sow") return;
-    // Toggle: clicking the open step collapses it back to nothing (no scroll).
-    if (key === activeKey) {
-      setActiveStep("__none__");
-      return;
+    if (!open.has(key)) {
+      const next = new Set(open);
+      next.add(key);
+      setOpenSteps(next);
     }
-    setActiveStep(key);
     requestAnimationFrame(() =>
       document.getElementById(`step-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" }),
     );
@@ -323,29 +324,78 @@ export default function Workspace() {
           </div>
         </div>
 
-        {/* Journey — same rail + accordion as the prospect page, so the flow is
-            continuous across convert. Brief & Approach are done context; the
-            live work here is the meeting note and the Source of Wealth statement. */}
+        {/* Journey — the SAME rail + all-open steps as the prospect page, so the
+            flow is continuous and consistent across convert. Brief & Approach are
+            carried over read-only; Meeting and Source of Wealth are live. */}
         <div className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-12 min-w-0">
-          <JourneyRail steps={steps} activeKey={activeKey} onSelect={selectStep} />
+          <JourneyRail steps={steps} onSelect={selectStep} />
 
           <div className="space-y-4 min-w-0">
+            {/* 1 · Brief & qualify — carried from prospecting, read-only. */}
+            <StepSection
+              id="step-brief"
+              index={0}
+              title="Brief & qualify"
+              summary={carriedPrep ? "Researched read + $25M qualifier (from prospecting)" : "No prospecting brief captured"}
+              active={isOpen("brief")}
+              onActivate={() => toggleStep("brief")}
+            >
+              {carriedPrep ? (
+                <div className="space-y-8">
+                  <p className="text-xs text-muted-foreground print:hidden">
+                    Carried over from the prospecting stage — read-only here for reference.
+                  </p>
+                  {carriedPrep.wealthEstimate && <WealthEstimatePanel estimate={carriedPrep.wealthEstimate} />}
+                  <ReadSection read={carriedPrep.read} fallback={carriedPrep.marketRead ?? ""} />
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  This client was onboarded without a prospecting brief, so there is nothing to show here.
+                </p>
+              )}
+            </StepSection>
+
+            {/* 2 · Approach — carried from prospecting, read-only. */}
+            <StepSection
+              id="step-approach"
+              index={1}
+              title="Approach"
+              summary={carriedPrep ? "Outreach drafts (from prospecting)" : "No approach captured"}
+              active={isOpen("approach")}
+              onActivate={() => toggleStep("approach")}
+            >
+              {carriedPrep ? (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground print:hidden">
+                    Carried over from the prospecting stage — read-only here for reference.
+                  </p>
+                  <ApproachSection approach={carriedPrep.approach} fallback={carriedPrep.coldCall} />
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No approach drafts were captured for this client.
+                </p>
+              )}
+            </StepSection>
+
             {/* 3 · Meeting — the note that the statement is drafted from. */}
             <StepSection
               id="step-meeting"
               index={2}
               title="Meeting"
               summary={hasFileNote ? "Meeting note captured" : "Add the meeting note the statement draws from"}
-              status={statusOf("meeting")}
-              active={activeKey === "meeting"}
-              onActivate={() => selectStep("meeting")}
+              active={isOpen("meeting")}
+              onActivate={() => toggleStep("meeting")}
             >
-              <FileNotePanel
-                value={localData.fileNote}
-                onChange={(v) => handleDataChange("fileNote", v)}
-                contactName={assessment.clientName}
-                defaultMeetingType="Client review"
-              />
+              <div className="space-y-8">
+                <MeetingFactFind prep={carriedPrep} />
+                <FileNotePanel
+                  value={localData.fileNote}
+                  onChange={(v) => handleDataChange("fileNote", v)}
+                  contactName={assessment.clientName}
+                  defaultMeetingType="Client review"
+                />
+              </div>
             </StepSection>
 
             {/* 4 · Source of Wealth — the statement that answers the onboarding
@@ -356,9 +406,8 @@ export default function Workspace() {
               index={3}
               title="Source of Wealth"
               summary={isComplete ? "Marked complete" : "Draft and confirm the statement"}
-              status={statusOf("sow")}
-              active={activeKey === "sow"}
-              onActivate={() => selectStep("sow")}
+              active={isOpen("sow")}
+              onActivate={() => toggleStep("sow")}
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div className="space-y-2">

@@ -11,7 +11,7 @@ import {
 import { Layout } from "@/components/layout";
 import { FileNotePanel } from "@/components/file-note-panel";
 import { ProspectPrepPanel, ApproachSection } from "@/components/prospect-prep-panel";
-import { JourneyRail, StepSection, type JourneyStep, type StepStatus } from "@/components/journey-rail";
+import { JourneyRail, StepSection, type JourneyStep } from "@/components/journey-rail";
 import { ReferralPointers } from "@/components/referral-pointers";
 import { MeetingFactFind } from "@/components/meeting-fact-find";
 import { SourceOfWealthSection } from "@/components/source-of-wealth-section";
@@ -169,7 +169,8 @@ export default function Prospect() {
     prospect.status === "converted" ? prospect.convertedAssessmentId ?? null : null;
   const prep = localData.prep as import("@workspace/research-pipeline/types").PrepPack | undefined;
 
-  // ── Journey steps — one backbone, same on the assessment page ──
+  // ── Journey steps — one backbone, same on the assessment page. The four are
+  // navigable anchors, not a progress tracker (no done/todo ticks). ──
   const hasPrep = !!prep;
   const approachUsed = Array.isArray(localData.approachUsage) && (localData.approachUsage as unknown[]).length > 0;
   const hasFileNote = !!(localData.fileNote as { note?: string } | undefined)?.note?.trim();
@@ -177,27 +178,17 @@ export default function Prospect() {
     (f) => ((localData[f.id] as string | undefined) ?? "").trim().length > 0,
   );
 
-  const stepDefs = [
-    { key: "brief", label: "Brief & qualify", done: hasPrep },
-    { key: "approach", label: "Approach", done: approachUsed },
-    { key: "meeting", label: "Meeting", done: hasFileNote },
-    { key: "sow", label: "Source of Wealth", done: hasSowStatement },
+  const steps: JourneyStep[] = [
+    { key: "brief", label: "Brief & qualify" },
+    { key: "approach", label: "Approach" },
+    { key: "meeting", label: "Meeting" },
+    { key: "sow", label: "Source of Wealth" },
   ];
-  const currentIdx = stepDefs.findIndex((s) => !s.done);
-  const currentKey = stepDefs[currentIdx === -1 ? stepDefs.length - 1 : currentIdx].key;
-  const currentStageLabel = stepDefs.find((s) => s.key === currentKey)?.label ?? "";
   const isDormant = localMeta.status === "dormant";
 
-  // Every step open by default; the rail highlights the next action.
-  const open = openSteps ?? new Set(stepDefs.map((s) => s.key));
+  // Every step open by default so the pack reads as one continuous document.
+  const open = openSteps ?? new Set(steps.map((s) => s.key));
   const isOpen = (key: string) => open.has(key);
-
-  const steps: JourneyStep[] = stepDefs.map((s) => ({
-    key: s.key,
-    label: s.label,
-    status: (s.done ? "done" : s.key === currentKey ? "current" : "todo") as StepStatus,
-  }));
-  const statusOf = (key: string) => steps.find((s) => s.key === key)!.status;
 
   // Header chevron: collapse/expand a single step without affecting the others.
   const toggleStep = (key: string) => {
@@ -333,7 +324,7 @@ export default function Prospect() {
             <div><strong>Prospect:</strong> {prospect.name}</div>
             <div><strong>Segment:</strong> {localMeta.segment || "N/A"}</div>
             <div><strong>Banker:</strong> {localMeta.relationshipManager || "N/A"}</div>
-            <div><strong>Stage:</strong> {isDormant ? "Dormant" : currentStageLabel}</div>
+            <div><strong>Status:</strong> {isDormant ? "Dormant" : "Active"}</div>
             <div><strong>Date:</strong> {new Date().toLocaleDateString()}</div>
           </div>
         </div>
@@ -344,7 +335,7 @@ export default function Prospect() {
             rail jumps to any step and highlights the next action; each step can
             still be collapsed from its own header. */}
         <div className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-12 min-w-0">
-          <JourneyRail steps={steps} activeKey={currentKey} onSelect={selectStep} />
+          <JourneyRail steps={steps} onSelect={selectStep} />
 
           <div className="space-y-4 min-w-0">
             {/* 1 · Brief & qualify — the researched read + the $25M qualifier. */}
@@ -353,7 +344,6 @@ export default function Prospect() {
               index={0}
               title="Brief & qualify"
               summary={hasPrep ? "Researched read + $25M qualifier" : "Generate the brief to qualify this prospect"}
-              status={statusOf("brief")}
               active={isOpen("brief")}
               onActivate={() => toggleStep("brief")}
             >
@@ -374,7 +364,6 @@ export default function Prospect() {
               index={1}
               title="Approach"
               summary={approachUsed ? "Outreach underway" : "Reach out — referral first, then cold"}
-              status={statusOf("approach")}
               active={isOpen("approach")}
               onActivate={() => toggleStep("approach")}
             >
@@ -415,7 +404,6 @@ export default function Prospect() {
               index={2}
               title="Meeting"
               summary={hasFileNote ? "Meeting note captured" : "Collect the fact-find, then write the note"}
-              status={statusOf("meeting")}
               active={isOpen("meeting")}
               onActivate={() => toggleStep("meeting")}
             >
@@ -438,7 +426,6 @@ export default function Prospect() {
               index={3}
               title="Source of Wealth"
               summary={hasSowStatement ? "Statement drafted" : "Draft the Source of Wealth statement"}
-              status={statusOf("sow")}
               active={isOpen("sow")}
               onActivate={() => toggleStep("sow")}
             >
